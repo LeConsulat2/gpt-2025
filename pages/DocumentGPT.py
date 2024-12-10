@@ -1,98 +1,99 @@
 import streamlit as st
-import nltk
-from langchain_openai import ChatOpenAI
-from langchain_unstructured import UnstructuredLoader
-from unstructured.cleaners.core import clean_extra_whitespace
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import InMemoryVectorStore
-from langchain_openai import OpenAIEmbeddings
-from langchain_core.messages import HumanMessage, AIMessage
 import tempfile
-import io
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_core.messages import HumanMessage, AIMessage
 from background import Black
+from docx import Document
+from pypdf import PdfReader
 
-# Apply Black theme
 Black.dark_theme()
 
-# App Title and Description
+# App UI
 st.title("DocumentGPT")
 st.markdown("Upload your documents and ask questions about them.")
 st.divider()
 
-# Initialize session state for messages
+# Initialize session state
 if "doc_messages" not in st.session_state:
     st.session_state.doc_messages = []
 
-# File uploader for documents
-uploaded_files = st.file_uploader(
-    "Upload your documents", type=["pdf", "docx", "txt"], accept_multiple_files=True
-)
-
-# Initialize the OpenAI Chat Model
+# Initialize AI models
 chat = ChatOpenAI(
     model="gpt-4o-mini",
     temperature=0.5,
     streaming=True,
 )
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 
-# Process uploaded files
+
+# File processing
+def process_file(file):
+    file_type = file.name.split(".")[-1]
+    texts = []
+
+    if file_type == "pdf":
+        pdf_reader = PdfReader(file)
+        for page in pdf_reader.pages:
+            texts.append(page.extract_text())
+    elif file_type == "docx":
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+            temp_file.write(file.read())
+            temp_file.flush()
+            doc = Document(temp_file.name)
+            for para in doc.paragraphs:
+                texts.append(para.text)
+    elif file_type == "txt":
+        texts = file.read().decode("utf-8").splitlines()
+    else:
+        raise ValueError("Unsupported file type.")
+
+    return texts
+
+
+# File upload
+uploaded_files = st.file_uploader(
+    "Upload your documents",
+    type=["pdf", "docx", "txt"],
+    accept_multiple_files=True,
+)
+
+# Process documents
 if uploaded_files:
     with st.spinner("Processing documents..."):
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100,
-            length_function=len,
+        text_splitter = CharacterTextSplitter(
+            separator="\n",
+            chunk_size=500,
+            chunk_overlap=50,
         )
 
         all_texts = []
-
         for file in uploaded_files:
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_file.write(file.read())
-                temp_file_path = temp_file.name
-
-            # Use UnstructuredLoader for all file types with lazy loading
-            loader = UnstructuredLoader(
-                file_path=temp_file_path, post_processors=[clean_extra_whitespace]
-            )
-            # Use lazy_load for memory efficiency
-            texts = loader.lazy_load()
-
-            # Split text lazily
+            texts = process_file(file)
             for text in texts:
-                splits = text_splitter.split_text(text.page_content)
-                for split in splits:
-                    all_texts.append(split)
+                all_texts.extend(text_splitter.split_text(text))
 
-        # Create embeddings and vector store
-        embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
-        vectorstore = InMemoryVectorStore.from_documents(
-            [{"page_content": text} for text in all_texts], embeddings
-        )
+        st.session_state.vectorstore = FAISS.from_texts(all_texts, embeddings)
+        st.success(f"Processed {len(uploaded_files)} documents")
 
-        # Save to session state
-        st.session_state.vectorstore = vectorstore
-        st.success(f"Successfully processed {len(uploaded_files)} documents")
-
-# Chat interface remains the same as before
+# Chat interface
 if "vectorstore" in st.session_state:
+    # Show chat history
     for message in st.session_state.doc_messages:
-        if isinstance(message, HumanMessage):
-            st.chat_message("user").write(message.content)
-        else:
-            st.chat_message("assistant").write(message.content)
+        with st.chat_message(
+            "user" if isinstance(message, HumanMessage) else "assistant"
+        ):
+            st.write(message.content)
 
+    # Handle new questions
     query = st.chat_input("Ask a question about your documents")
-
     if query:
-        user_message = HumanMessage(content=query)
-        st.session_state.doc_messages.append(user_message)
-        st.chat_message("user").write(query)
+        st.session_state.doc_messages.append(HumanMessage(content=query))
 
-        # Search similar content
+        # Get relevant context
         similar_docs = st.session_state.vectorstore.similarity_search(query, k=3)
         context = "\n".join(doc.page_content for doc in similar_docs)
-
         prompt = f"""Based on the following context, please answer the question. 
         If you cannot find the answer in the context, say so.
         
@@ -100,11 +101,10 @@ if "vectorstore" in st.session_state:
         
         Question: {query}"""
 
+        # Stream response
         response_placeholder = st.chat_message("assistant").empty()
         full_response = ""
-
-        messages = [HumanMessage(content=prompt)]
-        for chunk in chat.stream(messages):
+        for chunk in chat.stream([HumanMessage(content=prompt)]):
             if chunk.content:
                 full_response += chunk.content
                 response_placeholder.markdown(full_response)
