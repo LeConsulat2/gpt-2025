@@ -75,7 +75,7 @@ else:
 
 with st.sidebar:
     st.markdown(
-        "[Github Code](https://github.com/LeConsulat2/gpt-2025/blob/master/Home.py)"
+        "[Github Code](https://github.com/LeConsulat2/gpt-2025/blob/master/App.py)"
     )
 
 # File upload
