@@ -1,6 +1,16 @@
+# 환경 변수 파일
 .env
+
+# NLTK 데이터 디렉토리
 /nltk_data
-/env
+
+# 가상 환경 디렉토리
+env/
+.venv/
+
+# 테스트용 노트북 파일
 test.ipynb
+
+# Streamlit 디렉토리와 설정 파일
 .streamlit/*
 !.streamlit/config.toml
