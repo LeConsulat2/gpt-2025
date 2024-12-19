@@ -2,4 +2,5 @@
 /nltk_data
 /env
 test.ipynb
-
+.streamlit/*
+!.streamlit/config.toml
