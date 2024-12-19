@@ -17,7 +17,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize chat model
 chat = ChatOpenAI(
-    model="gpt-4",
+    model="gpt-4o-mini",
     temperature=0.5,
     streaming=True,
 )
