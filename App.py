@@ -1,7 +1,7 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
+from langchain_unstructured import UnstructuredLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
@@ -85,15 +85,17 @@ if uploaded_file:
         embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 
         # Create retriever
-        file_extension = uploaded_file.name.split(".")[-1].lower()
-        if file_extension == "pdf":
-            loader = PyPDFLoader(temp_file_path)
-        elif file_extension == "docx":
-            loader = Docx2txtLoader(temp_file_path)
-        else:
-            loader = TextLoader(temp_file_path)
+        loader = UnstructuredLoader(
+            file_path=temp_file_path,
+            strategy="hi_res",
+            partition_via_api=True,
+            coordinates=True,
+        )
 
-        documents = loader.load()
+        documents = []
+        for doc in loader.lazy_load():
+            documents.append(doc)
+
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         splits = text_splitter.split_documents(documents)
         vectorstore = FAISS.from_documents(splits, embeddings)
