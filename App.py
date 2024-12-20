@@ -1,16 +1,16 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain.document_loaders import UnstructuredFileLoader
+from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 import streamlit as st
 import os
 import time
-from background import Black
 from docx2txt import process
-
+from PyPDF2 import PdfReader
+from background import Black
 
 Black.dark_theme()
 
@@ -77,7 +77,7 @@ def create_chain(retriever, llm):
 uploaded_file = st.file_uploader("Upload your document", type=["txt", "pdf", "docx"])
 
 if uploaded_file:
-    # Save uploaded file temporarily
+    # Process uploaded file
     temp_file_path = f"temp_{uploaded_file.name}"
     with open(temp_file_path, "wb") as f:
         f.write(uploaded_file.getvalue())
@@ -88,34 +88,34 @@ if uploaded_file:
 
     if file_extension == "docx":
         # Use docx2txt for DOCX files
-        from docx2txt import process
-
         text = process(temp_file_path)
-        documents.append({"content": text, "metadata": {"source": temp_file_path}})
+        documents.append(
+            Document(page_content=text, metadata={"source": temp_file_path})
+        )
     elif file_extension == "pdf":
         # Use PyPDF2 for PDF files
-        from PyPDF2 import PdfReader
-
         reader = PdfReader(temp_file_path)
         text = "\n".join([page.extract_text() for page in reader.pages])
-        documents.append({"content": text, "metadata": {"source": temp_file_path}})
+        documents.append(
+            Document(page_content=text, metadata={"source": temp_file_path})
+        )
     else:
         # Use UnstructuredFileLoader for TXT and other file types
         from langchain.document_loaders import UnstructuredFileLoader
 
         loader = UnstructuredFileLoader(temp_file_path)
-        documents = loader.load()
+        loaded_documents = loader.load()
+        documents.extend(
+            Document(page_content=doc.page_content, metadata=doc.metadata)
+            for doc in loaded_documents
+        )
 
     # Initialize embeddings and split documents
     embeddings = OpenAIEmbeddings(openai_api_key=api_key)
-    from langchain.text_splitter import CharacterTextSplitter
-
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     splits = text_splitter.split_documents(documents)
 
     # Create vector store and retriever
-    from langchain.vectorstores import FAISS
-
     vectorstore = FAISS.from_documents(splits, embeddings)
     retriever = vectorstore.as_retriever()
 
