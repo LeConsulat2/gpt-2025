@@ -135,17 +135,19 @@ if uploaded_file:
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Stream chain response
+        # Simulate response streaming
         with st.chat_message("assistant"):
             response_container = st.empty()  # Container for streaming responses
-            response_text = ""
-            for chunk in chain.invoke(
-                {"question": prompt}
-            ):  # Assuming `chain.invoke` supports streaming
-                response_text += chunk
+            response_text = chain.invoke({"question": prompt})[
+                "output"
+            ]  # Process full response
+            for i in range(
+                0, len(response_text), 50
+            ):  # Simulate streaming in chunks of 50 characters
                 response_container.markdown(
-                    response_text
+                    response_text[: i + 50]
                 )  # Update response dynamically
+                time.sleep(0.05)  # Simulate delay for streaming effect
 
             # Save final response
             st.session_state.messages.append(
