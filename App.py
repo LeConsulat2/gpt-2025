@@ -135,10 +135,22 @@ if uploaded_file:
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        response = chain.invoke({"question": prompt})
+        # Stream chain response
         with st.chat_message("assistant"):
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            response_container = st.empty()  # Container for streaming responses
+            response_text = ""
+            for chunk in chain.invoke(
+                {"question": prompt}
+            ):  # Assuming `chain.invoke` supports streaming
+                response_text += chunk
+                response_container.markdown(
+                    response_text
+                )  # Update response dynamically
+
+            # Save final response
+            st.session_state.messages.append(
+                {"role": "assistant", "content": response_text}
+            )
 
     # Cleanup
     if os.path.exists(temp_file_path):
