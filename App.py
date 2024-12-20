@@ -1,9 +1,9 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
-from langchain_text_splitters import CharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 import streamlit as st
 import os
