@@ -1,7 +1,7 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain_unstructured import UnstructuredLoader
+from langchain.document_loaders import UnstructuredFileLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
@@ -85,16 +85,8 @@ if uploaded_file:
         embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 
         # Create retriever
-        loader = UnstructuredLoader(
-            file_path=temp_file_path,
-            strategy="hi_res",
-            partition_via_api=True,
-            coordinates=True,
-        )
-
-        documents = []
-        for doc in loader.lazy_load():
-            documents.append(doc)
+        loader = UnstructuredFileLoader(temp_file_path)
+        documents = loader.load()
 
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         splits = text_splitter.split_documents(documents)
