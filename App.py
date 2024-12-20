@@ -9,6 +9,8 @@ import streamlit as st
 import os
 import time
 from background import Black
+from docx2txt import process
+
 
 Black.dark_theme()
 
@@ -75,52 +77,69 @@ def create_chain(retriever, llm):
 uploaded_file = st.file_uploader("Upload your document", type=["txt", "pdf", "docx"])
 
 if uploaded_file:
-    # Process uploaded file
+    # Save uploaded file temporarily
     temp_file_path = f"temp_{uploaded_file.name}"
     with open(temp_file_path, "wb") as f:
         f.write(uploaded_file.getvalue())
 
-    try:
-        # Initialize embeddings
-        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+    # Determine file type and process
+    file_extension = uploaded_file.name.split(".")[-1].lower()
+    documents = []
 
-        # Create retriever
+    if file_extension == "docx":
+        # Use docx2txt for DOCX files
+        from docx2txt import process
+
+        text = process(temp_file_path)
+        documents.append({"content": text, "metadata": {"source": temp_file_path}})
+    elif file_extension == "pdf":
+        # Use PyPDF2 for PDF files
+        from PyPDF2 import PdfReader
+
+        reader = PdfReader(temp_file_path)
+        text = "\n".join([page.extract_text() for page in reader.pages])
+        documents.append({"content": text, "metadata": {"source": temp_file_path}})
+    else:
+        # Use UnstructuredFileLoader for TXT and other file types
+        from langchain.document_loaders import UnstructuredFileLoader
+
         loader = UnstructuredFileLoader(temp_file_path)
         documents = loader.load()
 
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-        splits = text_splitter.split_documents(documents)
-        vectorstore = FAISS.from_documents(splits, embeddings)
-        retriever = vectorstore.as_retriever()
+    # Initialize embeddings and split documents
+    embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+    from langchain.text_splitter import CharacterTextSplitter
 
-        # Create the chain
-        chain = create_chain(retriever, llm)
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    splits = text_splitter.split_documents(documents)
 
-        # Initialize chat history
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
+    # Create vector store and retriever
+    from langchain.vectorstores import FAISS
 
-        # Display chat history
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+    vectorstore = FAISS.from_documents(splits, embeddings)
+    retriever = vectorstore.as_retriever()
 
-        # Chat input
-        if prompt := st.chat_input("Ask about your document"):
-            # Add user message to history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+    # Create the chain
+    chain = create_chain(retriever, llm)
 
-            # Get AI response
-            with st.chat_message("assistant"):
-                response = chain.invoke({"question": prompt})
-                st.markdown(response)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": response}
-                )
+    # Display chat history and handle user input
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    finally:
-        # Cleanup
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("Ask about your document"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        response = chain.invoke({"question": prompt})
+        with st.chat_message("assistant"):
+            st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+    # Cleanup
+    if os.path.exists(temp_file_path):
+        os.remove(temp_file_path)
