@@ -43,8 +43,13 @@ if api_key:
         st.write_stream(stream_data)
         st.session_state.api_key_entered = True
 
-    # Initialize LLM after API key is received
-    llm = ChatOpenAI(temperature=0.1, model="gpt-4o-mini", openai_api_key=api_key)
+    # Initialize LLM with streaming
+    llm = ChatOpenAI(
+        temperature=0.1,
+        model="gpt-4",
+        openai_api_key=api_key,
+        streaming=True,  # Enable streaming
+    )
 else:
     st.error("Please enter your OPENAI API KEY in the sidebar")
     st.stop()
@@ -135,19 +140,13 @@ if uploaded_file:
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Simulate response streaming
+        # Stream response from OpenAI
         with st.chat_message("assistant"):
-            response_container = st.empty()  # Container for streaming responses
-            response_text = chain.invoke({"question": prompt})[
-                "output"
-            ]  # Process full response
-            for i in range(
-                0, len(response_text), 50
-            ):  # Simulate streaming in chunks of 50 characters
-                response_container.markdown(
-                    response_text[: i + 50]
-                )  # Update response dynamically
-                time.sleep(0.05)  # Simulate delay for streaming effect
+            response_container = st.empty()
+            response_text = ""
+            for chunk in llm.stream({"context": prompt}):  # Streaming enabled in llm
+                response_text += chunk["text"]
+                response_container.markdown(response_text)  # Update dynamically
 
             # Save final response
             st.session_state.messages.append(
