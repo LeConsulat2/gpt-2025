@@ -43,7 +43,9 @@ with st.sidebar:
     choice = st.selectbox("Choose Input Method:", ["File", "Wikipedia Article"])
 
     # GitHub repo link
-    st.markdown("[View on GitHub](https://github.com/yourusername/quizgpt)")
+    st.markdown(
+        "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/QuizGPT.py)"
+    )
 
 
 def generate_quiz(context, difficulty):
