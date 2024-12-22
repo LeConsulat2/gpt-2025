@@ -39,7 +39,7 @@ with st.sidebar:
 # LLM Initialization
 llm = ChatOpenAI(
     temperature=0.7,
-    model="gpt-4",
+    model="gpt-4o-mini",
     openai_api_key=st.session_state.openai_api_key,
 )
 
