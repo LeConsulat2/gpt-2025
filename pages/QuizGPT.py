@@ -1,6 +1,6 @@
 import streamlit as st
 from langchain_community.retrievers import WikipediaRetriever
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 import tempfile
 import json
 import os
