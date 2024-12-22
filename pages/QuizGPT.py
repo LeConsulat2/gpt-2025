@@ -152,19 +152,12 @@ if st.session_state.openai_api_key:
         quiz_data = st.session_state.quiz_state
         for idx, question in enumerate(quiz_data["questions"]):
             st.write(f"**Q{idx+1}: {question['question']}**")
+            # Generate a unique key for each radio button
+            selected_answer = st.radio(
+                f"Options for Q{idx+1}:",
+                options=[a["answer"] for a in question["answers"]],
+                key=f"q{idx}_ans_{st.session_state.quiz_key}",
+            )
+            # Update selected status for each answer
             for ans in question["answers"]:
-                ans["selected"] = (
-                    st.radio(
-                        f"Options for Q{idx+1}:",
-                        options=[a["answer"] for a in question["answers"]],
-                        key=f"q{idx}_ans",
-                    )
-                    == ans["answer"]
-                )
-
-        if st.button("Submit"):
-            handle_quiz_submission(quiz_data["questions"])
-            if st.session_state.all_correct:
-                st.success("All answers correct!")
-            else:
-                st.warning("Some answers are incorrect. Try again.")
+                ans["selected"] = ans["answer"] == selected_answer
