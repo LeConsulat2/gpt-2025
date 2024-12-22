@@ -54,7 +54,7 @@ if not st.session_state.openai_api_key:
 # LLM Initialization
 llm = ChatOpenAI(
     temperature=0.7,
-    model="gpt-4o-mini",
+    model="gpt-4",
     openai_api_key=st.session_state.openai_api_key,
 )
 
@@ -86,8 +86,12 @@ def generate_quiz(context, difficulty):
         ]
     }}
     """
-    response = llm.invoke(system_prompt)
-    return extract_json(response.content)
+    try:
+        response = llm.invoke(system_prompt)
+        return extract_json(response.content)
+    except Exception as e:
+        st.error(f"Error generating quiz: {str(e)}")
+        return None
 
 
 def handle_quiz_submission(answers):
@@ -104,11 +108,15 @@ def handle_quiz_submission(answers):
 def retrieve_wikipedia_content(query):
     """Retrieve content from Wikipedia using WikipediaRetriever."""
     retriever = WikipediaRetriever()
-    docs = retriever._get_relevant_documents(query)
-    if docs:
-        return "\n".join(doc.page_content for doc in docs)
-    else:
-        return "No content"
+    try:
+        docs = retriever.get_relevant_documents(query)
+        if docs:
+            return "\n".join(doc.page_content for doc in docs)
+        else:
+            return "No content found."
+    except Exception as e:
+        st.error(f"Error retrieving Wikipedia content: {str(e)}")
+        return "Error retrieving content."
 
 
 # Main content
