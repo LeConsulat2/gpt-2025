@@ -31,19 +31,24 @@ with st.sidebar:
     difficulty = st.select_slider(
         "Select Difficulty", options=["Easy", "Medium", "Hard"], value="Medium"
     )
-    choice = st.selectbox("Choose Input Method:", ["File", "Wikipedia Article"])
+
+    # Reset state when input method changes
+    choice = st.selectbox(
+        "Choose Input Method:",
+        ["File", "Wikipedia Article"],
+        key="input_method",
+        on_change=lambda: st.session_state.update(
+            {"quiz_state": None, "current_doc": None}
+        ),
+    )
+
     st.markdown(
         "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/QuizGPT.py)"
     )
 
-# Check for API key
-if not st.session_state.openai_api_key:
-    st.error("Please enter your OpenAI API Key in the sidebar to continue.")
-    st.stop()
-
 # LLM Initialization
 llm = ChatOpenAI(
-    temperature=0.7,
+    temperature=0.9,
     model="gpt-4o-mini",
     openai_api_key=st.session_state.openai_api_key,
 )
@@ -99,8 +104,12 @@ def retrieve_wikipedia_content(query):
     """Retrieve content from Wikipedia using WikipediaRetriever."""
     retriever = WikipediaRetriever()
     try:
-        content = retriever.retrieve(query)
-        return content.page_content if content else "No content found."
+        # Use get_relevant_documents instead of retrieve
+        docs = retriever.get_relevant_documents(query)
+        if docs:
+            return "\n".join(doc.page_content for doc in docs)
+        else:
+            return "No content found."
     except Exception as e:
         st.error(f"Error retrieving Wikipedia content: {str(e)}")
         return "Error retrieving content."
