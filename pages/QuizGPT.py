@@ -117,14 +117,24 @@ def retrieve_wikipedia_content(query):
 
 # Main content
 if choice == "Wikipedia Article":
-    article_query = st.text_input("Enter Wikipedia Article Topic:")
-    if article_query and st.button("Fetch Wikipedia Content"):
-        st.session_state.current_doc = retrieve_wikipedia_content(article_query)
-        if st.session_state.current_doc:
-            st.success("Content retrieved successfully!")
+    # Reset current_doc when a new query is entered
+    article_query = st.text_input("Enter Wikipedia Article Topic:", key="wiki_query")
+
+    # Add a button to trigger the Wikipedia search
+    if st.button("Fetch Wikipedia Content"):
+        if article_query.strip():  # Check if the query is not empty
+            st.session_state.current_doc = retrieve_wikipedia_content(article_query)
+            st.session_state.quiz_state = None  # Clear the previous quiz
+            if st.session_state.current_doc:
+                st.success("Content retrieved successfully!")
+        else:
+            st.warning("Please enter a valid topic to search.")
 
 elif choice == "File":
-    uploaded_file = st.file_uploader("Upload a text file", type=["txt", "pdf", "docx"])
+    # Handle file uploads and reset states
+    uploaded_file = st.file_uploader(
+        "Upload a text file", type=["txt", "pdf", "docx"], key="file_upload"
+    )
     if uploaded_file:
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(uploaded_file.getvalue())
@@ -151,6 +161,7 @@ elif choice == "File":
                 st.session_state.current_doc = "\n".join(
                     paragraph.text for paragraph in doc.paragraphs
                 )
+            st.session_state.quiz_state = None  # Clear the previous quiz
             st.success("File uploaded and processed!")
         finally:
             os.remove(temp_file_path)
