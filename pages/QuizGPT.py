@@ -52,15 +52,11 @@ if not st.session_state.openai_api_key:
     st.stop()
 
 # LLM Initialization
-try:
-    llm = ChatOpenAI(
-        temperature=0.7,
-        model="gpt-4o-mini",
-        openai_api_key=st.session_state.openai_api_key,
-    )
-except Exception as e:
-    st.error(f"Error initializing OpenAI API: {e}")
-    st.stop()
+llm = ChatOpenAI(
+    temperature=0.7,
+    model="gpt-4o-mini",
+    openai_api_key=st.session_state.openai_api_key,
+)
 
 
 # Functions
