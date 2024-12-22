@@ -5,6 +5,7 @@ import tempfile
 import json
 import os
 from PyPDF2 import PdfReader
+import docx
 import io
 
 st.set_page_config(page_title="QuizGPT", page_icon="❓")
@@ -14,6 +15,10 @@ if "quiz_state" not in st.session_state:
     st.session_state.quiz_state = None
 if "all_correct" not in st.session_state:
     st.session_state.all_correct = False
+if "current_doc" not in st.session_state:
+    st.session_state.current_doc = None
+if "quiz_key" not in st.session_state:
+    st.session_state.quiz_key = 0
 
 # Sidebar configuration
 with st.sidebar:
@@ -45,6 +50,7 @@ def generate_quiz(context, difficulty):
     """Generate quiz questions using function calling"""
     system_prompt = f"""
     You are a teacher creating a {difficulty.lower()}-level quiz.
+    Generate completely new and different questions each time.
     Generate questions as a JSON object with the following structure:
     {{
         "questions": [
@@ -63,17 +69,28 @@ def generate_quiz(context, difficulty):
     For {difficulty.lower()} difficulty:
     - Easy: Basic recall and simple comprehension questions
     - Medium: Understanding and application questions
-    - Hard: Analysis and evaluation questions
+    - Hard: Analysis and evaluation questions with more complex options
     
-    Generate 10 questions based on this context: {context}
+    Generate 10 different questions based on this context: {context}
+    Make sure to randomize the order of questions and answers each time.
     """
 
     llm = ChatOpenAI(
-        temperature=0.5, model="gpt-4", openai_api_key=st.session_state.openai_api_key
+        temperature=0.9,  # Increased for more variety
+        model="gpt-4o-mini",
+        openai_api_key=st.session_state.openai_api_key,
     )
 
     response = llm.invoke(system_prompt)
     return json.loads(response.content)
+
+
+def read_docx(file):
+    doc = docx.Document(file)
+    text = []
+    for paragraph in doc.paragraphs:
+        text.append(paragraph.text)
+    return "\n".join(text)
 
 
 def process_file(file):
@@ -88,6 +105,14 @@ def process_file(file):
                 text += page.extract_text() + "\n"
         elif file_type == "txt":
             text = file.getvalue().decode("utf-8")
+        elif file_type == "docx":
+            # Create a temporary file to save the uploaded file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_file:
+                tmp_file.write(file.getvalue())
+                tmp_file.flush()
+                text = read_docx(tmp_file.name)
+            # Clean up the temporary file
+            os.unlink(tmp_file.name)
         else:
             st.error(f"Unsupported file type: {file_type}")
             return None
@@ -95,6 +120,14 @@ def process_file(file):
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None
+
+
+def regenerate_quiz():
+    st.session_state.quiz_key += 1
+    if st.session_state.current_doc:
+        st.session_state.quiz_state = generate_quiz(
+            st.session_state.current_doc, difficulty
+        )
 
 
 def main():
@@ -107,7 +140,7 @@ def main():
     docs = None
     if choice == "File":
         uploaded_file = st.file_uploader(
-            "Upload a file (pdf, txt):", type=["pdf", "txt"]
+            "Upload a file (pdf, docx, txt):", type=["pdf", "docx", "txt"]
         )
         if uploaded_file:
             docs = process_file(uploaded_file)
@@ -119,10 +152,18 @@ def main():
             docs = results[0].page_content if results else ""
 
     if docs:
+        # Store the current document
+        st.session_state.current_doc = docs
+
+        # Generate new quiz if needed
         if st.session_state.quiz_state is None:
             st.session_state.quiz_state = generate_quiz(docs, difficulty)
 
-        with st.form("quiz_form"):
+        # Add a button to generate new questions
+        if st.button("Generate New Questions"):
+            regenerate_quiz()
+
+        with st.form(f"quiz_form_{st.session_state.quiz_key}"):
             st.write(f"### {difficulty} Level Quiz")
             correct_count = 0
             total_questions = len(st.session_state.quiz_state["questions"])
@@ -131,14 +172,18 @@ def main():
                 st.write(question["question"])
                 options = [answer["answer"] for answer in question["answers"]]
                 selected_option = st.radio(
-                    "Select an option:", options, key=question["question"]
+                    "Select an option:",
+                    options,
+                    key=f"{question['question']}_{st.session_state.quiz_key}",
                 )
 
             submit = st.form_submit_button("Submit")
 
             if submit:
                 for question in st.session_state.quiz_state["questions"]:
-                    selected_option = st.session_state[question["question"]]
+                    selected_option = st.session_state[
+                        f"{question['question']}_{st.session_state.quiz_key}"
+                    ]
                     correct_option = next(
                         answer["answer"]
                         for answer in question["answers"]
@@ -158,7 +203,7 @@ def main():
                 else:
                     st.warning(f"Score: {correct_count}/{total_questions}")
                     if st.button("Retake Quiz"):
-                        st.session_state.quiz_state = generate_quiz(docs, difficulty)
+                        regenerate_quiz()
                         st.experimental_rerun()
 
 
