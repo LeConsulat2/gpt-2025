@@ -1,7 +1,7 @@
 import streamlit as st
 from langchain_community.retrievers import WikipediaRetriever
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
 from langchain.schema import BaseOutputParser
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.document_loaders import UnstructuredFileLoader
@@ -32,9 +32,7 @@ if not st.session_state.openai_api_key:
     st.warning("Please enter your OPENAI API KEY in the sidebar to proceed.")
 else:
     llm = ChatOpenAI(
-        temperature=0.5,
-        model="gpt-4o-mini",
-        openai_api_key=st.session_state.openai_api_key,
+        temperature=0.5, model="gpt-4", openai_api_key=st.session_state.openai_api_key
     )
 
     def generate_questions(context):
@@ -53,7 +51,7 @@ else:
             ]
         )
         chain = prompt | llm
-        return chain.run({"context": context})
+        return chain.invoke({"context": context})  # Use `invoke` instead of `run`
 
     def parse_questions(questions_text):
         class JsonOutputParser(BaseOutputParser):
@@ -100,7 +98,9 @@ else:
             docs = results[0].page_content if results else ""
 
     if docs:
-        questions_text = generate_questions(docs)
+        questions_text = generate_questions(
+            docs
+        )  # Generate questions using updated `invoke`
         parsed_questions = parse_questions(questions_text)
 
         with st.form("quiz_form"):
