@@ -51,7 +51,8 @@ else:
             ]
         )
         chain = prompt | llm
-        return chain.invoke({"context": context})  # Use `invoke` instead of `run`
+        result = chain.invoke({"context": context})  # Use invoke instead of run
+        return result.content  # Extract the text content from AIMessage
 
     def parse_questions(questions_text):
         class JsonOutputParser(BaseOutputParser):
