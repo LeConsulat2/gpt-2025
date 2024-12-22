@@ -1,14 +1,11 @@
 import streamlit as st
 from langchain_community.retrievers import WikipediaRetriever
 from langchain.chat_models import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import BaseOutputParser
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.document_loaders import UnstructuredFileLoader
-from PyPDF2 import PdfReader
 import tempfile
 import json
 import os
+from PyPDF2 import PdfReader
+import io
 
 st.set_page_config(page_title="QuizGPT", page_icon="❓")
 
@@ -81,23 +78,23 @@ def generate_quiz(context, difficulty):
 
 def process_file(file):
     """Process uploaded files"""
-    file_type = file.name.split(".")[-1]
-    texts = []
+    text = ""
+    file_type = file.name.split(".")[-1].lower()
 
-    if file_type == "pdf":
-        pdf_reader = PdfReader(file)
-        for page in pdf_reader.pages:
-            texts.append(page.extract_text())
-    elif file_type == "docx":
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
-            temp_file.write(file.read())
-            temp_file.flush()
-            loader = UnstructuredFileLoader(temp_file.name)
-            splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-            texts = loader.load_and_split(text_splitter=splitter)
-    elif file_type == "txt":
-        texts = file.read().decode("utf-8").splitlines()
-    return "\n".join(texts)
+    try:
+        if file_type == "pdf":
+            pdf_reader = PdfReader(file)
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+        elif file_type == "txt":
+            text = file.getvalue().decode("utf-8")
+        else:
+            st.error(f"Unsupported file type: {file_type}")
+            return None
+        return text
+    except Exception as e:
+        st.error(f"Error processing file: {str(e)}")
+        return None
 
 
 def main():
@@ -110,7 +107,7 @@ def main():
     docs = None
     if choice == "File":
         uploaded_file = st.file_uploader(
-            "Upload a file (docx, pdf, txt):", type=["docx", "pdf", "txt"]
+            "Upload a file (pdf, txt):", type=["pdf", "txt"]
         )
         if uploaded_file:
             docs = process_file(uploaded_file)
