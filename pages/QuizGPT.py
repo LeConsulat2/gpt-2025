@@ -71,7 +71,7 @@ def extract_json(content):
 def generate_quiz(context, difficulty):
     """Generate quiz questions using LLM."""
     system_prompt = f"""
-    Create a {difficulty.lower()}-level quiz in JSON format with 10 questions about the following content:
+    Create a {difficulty.lower()}-level quiz in JSON format with exactly 4 questions about the following content:
     {context}
     The quiz must follow this structure:
     {{
@@ -86,12 +86,8 @@ def generate_quiz(context, difficulty):
         ]
     }}
     """
-    try:
-        response = llm.invoke(system_prompt)
-        return extract_json(response.content)
-    except Exception as e:
-        st.error(f"Error generating quiz: {str(e)}")
-        return None
+    response = llm.invoke(system_prompt)
+    return extract_json(response.content)
 
 
 def handle_quiz_submission(answers):
@@ -108,15 +104,11 @@ def handle_quiz_submission(answers):
 def retrieve_wikipedia_content(query):
     """Retrieve content from Wikipedia using WikipediaRetriever."""
     retriever = WikipediaRetriever()
-    try:
-        docs = retriever.get_relevant_documents(query)
-        if docs:
-            return "\n".join(doc.page_content for doc in docs)
-        else:
-            return "No content found."
-    except Exception as e:
-        st.error(f"Error retrieving Wikipedia content: {str(e)}")
-        return "Error retrieving content."
+    docs = retriever._get_relevant_documents(query)
+    if docs:
+        return "\n".join(doc.page_content for doc in docs)
+    else:
+        return "No content"
 
 
 # Main content
@@ -190,5 +182,6 @@ if st.session_state.quiz_state:
         handle_quiz_submission(quiz_data["questions"])
         if st.session_state.all_correct:
             st.success("All answers correct!")
+            st.balloons()
         else:
             st.warning("Some answers are incorrect. Try again.")
