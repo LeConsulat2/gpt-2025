@@ -36,10 +36,15 @@ with st.sidebar:
         "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/QuizGPT.py)"
     )
 
+# Check for API key
+if not st.session_state.openai_api_key:
+    st.error("Please enter your OpenAI API Key in the sidebar to continue.")
+    st.stop()
+
 # LLM Initialization
 llm = ChatOpenAI(
     temperature=0.7,
-    model="gpt-4o-mini",
+    model="gpt-4",
     openai_api_key=st.session_state.openai_api_key,
 )
 
@@ -102,72 +107,68 @@ def retrieve_wikipedia_content(query):
 
 
 # Main content
-if st.session_state.openai_api_key:
-    if choice == "Wikipedia Article":
-        article_query = st.text_input("Enter Wikipedia Article Topic:")
-        if article_query and st.button("Fetch Wikipedia Content"):
-            st.session_state.current_doc = retrieve_wikipedia_content(article_query)
-            if st.session_state.current_doc:
-                st.success("Content retrieved successfully!")
+if choice == "Wikipedia Article":
+    article_query = st.text_input("Enter Wikipedia Article Topic:")
+    if article_query and st.button("Fetch Wikipedia Content"):
+        st.session_state.current_doc = retrieve_wikipedia_content(article_query)
+        if st.session_state.current_doc:
+            st.success("Content retrieved successfully!")
 
-    elif choice == "File":
-        uploaded_file = st.file_uploader(
-            "Upload a text file", type=["txt", "pdf", "docx"]
-        )
-        if uploaded_file:
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_file_path = temp_file.name
+elif choice == "File":
+    uploaded_file = st.file_uploader("Upload a text file", type=["txt", "pdf", "docx"])
+    if uploaded_file:
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(uploaded_file.getvalue())
+            temp_file_path = temp_file.name
 
-            try:
-                if uploaded_file.type == "text/plain":
-                    with open(temp_file_path, "r", encoding="utf-8") as f:
-                        st.session_state.current_doc = f.read()
-                elif uploaded_file.type == "application/pdf":
-                    import PyPDF2
+        try:
+            if uploaded_file.type == "text/plain":
+                with open(temp_file_path, "r", encoding="utf-8") as f:
+                    st.session_state.current_doc = f.read()
+            elif uploaded_file.type == "application/pdf":
+                import PyPDF2
 
-                    pdf_reader = PyPDF2.PdfReader(temp_file_path)
-                    st.session_state.current_doc = "\n".join(
-                        page.extract_text() for page in pdf_reader.pages
-                    )
-                elif (
-                    uploaded_file.type
-                    == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                ):
-                    import docx
+                pdf_reader = PyPDF2.PdfReader(temp_file_path)
+                st.session_state.current_doc = "\n".join(
+                    page.extract_text() for page in pdf_reader.pages
+                )
+            elif (
+                uploaded_file.type
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ):
+                import docx
 
-                    doc = docx.Document(temp_file_path)
-                    st.session_state.current_doc = "\n".join(
-                        paragraph.text for paragraph in doc.paragraphs
-                    )
-                st.success("File uploaded and processed!")
-            finally:
-                # Cleanup: Remove the temporary file
-                os.remove(temp_file_path)
+                doc = docx.Document(temp_file_path)
+                st.session_state.current_doc = "\n".join(
+                    paragraph.text for paragraph in doc.paragraphs
+                )
+            st.success("File uploaded and processed!")
+        finally:
+            os.remove(temp_file_path)
 
-    if st.session_state.current_doc and st.button("Generate Quiz"):
-        st.session_state.quiz_state = generate_quiz(
-            st.session_state.current_doc, difficulty
-        )
-        if st.session_state.quiz_state:
-            st.session_state.quiz_key += 1
-            st.success("Quiz generated successfully!")
-
+if st.session_state.current_doc and st.button("Generate Quiz"):
+    st.session_state.quiz_state = generate_quiz(
+        st.session_state.current_doc, difficulty
+    )
     if st.session_state.quiz_state:
-        quiz_data = st.session_state.quiz_state
-        for idx, question in enumerate(quiz_data["questions"]):
-            st.write(f"**Q{idx+1}: {question['question']}**")
-            selected_answer = st.radio(
-                f"Options for Q{idx+1}:",
-                options=[a["answer"] for a in question["answers"]],
-                key=f"q{idx}_ans_{st.session_state.quiz_key}",
-            )
-            for ans in question["answers"]:
-                ans["selected"] = ans["answer"] == selected_answer
+        st.session_state.quiz_key += 1
+        st.success("Quiz generated successfully!")
 
-        if st.button("Submit"):
-            handle_quiz_submission(quiz_data["questions"])
-            if st.session_state.all_correct:
-                st.success("All answers correct!")
-            else:
-                st.warning("Some answers are incorrect. Try again.")
+if st.session_state.quiz_state:
+    quiz_data = st.session_state.quiz_state
+    for idx, question in enumerate(quiz_data["questions"]):
+        st.write(f"**Q{idx+1}: {question['question']}**")
+        selected_answer = st.radio(
+            f"Options for Q{idx+1}:",
+            options=[a["answer"] for a in question["answers"]],
+            key=f"q{idx}_ans_{st.session_state.quiz_key}",
+        )
+        for ans in question["answers"]:
+            ans["selected"] = ans["answer"] == selected_answer
+
+    if st.button("Submit"):
+        handle_quiz_submission(quiz_data["questions"])
+        if st.session_state.all_correct:
+            st.success("All answers correct!")
+        else:
+            st.warning("Some answers are incorrect. Try again.")
