@@ -36,10 +36,10 @@ with st.sidebar:
         "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/QuizGPT.py)"
     )
 
-
+# LLM Initialization
 llm = ChatOpenAI(
     temperature=0.7,
-    model="gpt-4o-mini",
+    model="gpt-4",
     openai_api_key=st.session_state.openai_api_key,
 )
 
@@ -71,8 +71,12 @@ def generate_quiz(context, difficulty):
         ]
     }}
     """
-    # Add LLM call here
-    pass
+    try:
+        response = llm.invoke(system_prompt)
+        return extract_json(response.content)
+    except Exception as e:
+        st.error(f"Error generating quiz: {str(e)}")
+        return None
 
 
 def handle_quiz_submission(answers):
@@ -145,18 +149,25 @@ if st.session_state.openai_api_key:
         st.session_state.quiz_state = generate_quiz(
             st.session_state.current_doc, difficulty
         )
-        st.session_state.quiz_key += 1
+        if st.session_state.quiz_state:
+            st.session_state.quiz_key += 1
+            st.success("Quiz generated successfully!")
 
     if st.session_state.quiz_state:
         quiz_data = st.session_state.quiz_state
         for idx, question in enumerate(quiz_data["questions"]):
             st.write(f"**Q{idx+1}: {question['question']}**")
-            # Generate a unique key for each radio button
             selected_answer = st.radio(
                 f"Options for Q{idx+1}:",
                 options=[a["answer"] for a in question["answers"]],
                 key=f"q{idx}_ans_{st.session_state.quiz_key}",
             )
-            # Update selected status for each answer
             for ans in question["answers"]:
                 ans["selected"] = ans["answer"] == selected_answer
+
+        if st.button("Submit"):
+            handle_quiz_submission(quiz_data["questions"])
+            if st.session_state.all_correct:
+                st.success("All answers correct!")
+            else:
+                st.warning("Some answers are incorrect. Try again.")
