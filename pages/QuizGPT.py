@@ -46,12 +46,21 @@ with st.sidebar:
         "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/QuizGPT.py)"
     )
 
+# Check for API key
+if not st.session_state.openai_api_key:
+    st.warning("Please enter your OpenAI API Key in the sidebar to continue.")
+    st.stop()
+
 # LLM Initialization
-llm = ChatOpenAI(
-    temperature=0.9,
-    model="gpt-4o-mini",
-    openai_api_key=st.session_state.openai_api_key,
-)
+try:
+    llm = ChatOpenAI(
+        temperature=0.7,
+        model="gpt-4o-mini",
+        openai_api_key=st.session_state.openai_api_key,
+    )
+except Exception as e:
+    st.error(f"Error initializing OpenAI API: {e}")
+    st.stop()
 
 
 # Functions
@@ -104,7 +113,6 @@ def retrieve_wikipedia_content(query):
     """Retrieve content from Wikipedia using WikipediaRetriever."""
     retriever = WikipediaRetriever()
     try:
-        # Use get_relevant_documents instead of retrieve
         docs = retriever.get_relevant_documents(query)
         if docs:
             return "\n".join(doc.page_content for doc in docs)
@@ -117,21 +125,17 @@ def retrieve_wikipedia_content(query):
 
 # Main content
 if choice == "Wikipedia Article":
-    # Reset current_doc when a new query is entered
     article_query = st.text_input("Enter Wikipedia Article Topic:", key="wiki_query")
-
-    # Add a button to trigger the Wikipedia search
     if st.button("Fetch Wikipedia Content"):
-        if article_query.strip():  # Check if the query is not empty
+        if article_query.strip():
             st.session_state.current_doc = retrieve_wikipedia_content(article_query)
-            st.session_state.quiz_state = None  # Clear the previous quiz
+            st.session_state.quiz_state = None
             if st.session_state.current_doc:
                 st.success("Content retrieved successfully!")
         else:
             st.warning("Please enter a valid topic to search.")
 
 elif choice == "File":
-    # Handle file uploads and reset states
     uploaded_file = st.file_uploader(
         "Upload a text file", type=["txt", "pdf", "docx"], key="file_upload"
     )
@@ -161,7 +165,7 @@ elif choice == "File":
                 st.session_state.current_doc = "\n".join(
                     paragraph.text for paragraph in doc.paragraphs
                 )
-            st.session_state.quiz_state = None  # Clear the previous quiz
+            st.session_state.quiz_state = None
             st.success("File uploaded and processed!")
         finally:
             os.remove(temp_file_path)
