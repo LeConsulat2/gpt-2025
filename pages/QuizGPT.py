@@ -12,77 +12,100 @@ import os
 
 st.set_page_config(page_title="QuizGPT", page_icon="❓")
 
-# Sidebar for configuration
+# Initialize session states
+if "quiz_state" not in st.session_state:
+    st.session_state.quiz_state = None
+if "all_correct" not in st.session_state:
+    st.session_state.all_correct = False
+
+# Sidebar configuration
 with st.sidebar:
     st.title("Configuration")
+
+    # API Key input
     if "openai_api_key" not in st.session_state:
         st.session_state.openai_api_key = ""
 
-    if not st.session_state.openai_api_key:
-        st.session_state.openai_api_key = st.text_input(
-            "Enter your OPENAI API KEY:", type="password"
-        )
-        if st.session_state.openai_api_key:
-            st.success("API Key saved. You can now create quizzes.")
+    st.session_state.openai_api_key = st.text_input(
+        "Enter your OpenAI API Key:",
+        type="password",
+        value=st.session_state.openai_api_key,
+    )
 
+    # Difficulty selector
+    difficulty = st.select_slider(
+        "Select Difficulty", options=["Easy", "Medium", "Hard"], value="Medium"
+    )
+
+    # Input method selector
     choice = st.selectbox("Choose Input Method:", ["File", "Wikipedia Article"])
 
-if not st.session_state.openai_api_key:
-    st.title("QuizGPT")
-    st.warning("Please enter your OPENAI API KEY in the sidebar to proceed.")
-else:
+    # GitHub repo link
+    st.markdown("[View on GitHub](https://github.com/yourusername/quizgpt)")
+
+
+def generate_quiz(context, difficulty):
+    """Generate quiz questions using function calling"""
+    system_prompt = f"""
+    You are a teacher creating a {difficulty.lower()}-level quiz.
+    Generate questions as a JSON object with the following structure:
+    {{
+        "questions": [
+            {{
+                "question": "question text",
+                "answers": [
+                    {{"answer": "option 1", "correct": false}},
+                    {{"answer": "option 2", "correct": true}},
+                    {{"answer": "option 3", "correct": false}},
+                    {{"answer": "option 4", "correct": false}}
+                ]
+            }}
+        ]
+    }}
+    
+    For {difficulty.lower()} difficulty:
+    - Easy: Basic recall and simple comprehension questions
+    - Medium: Understanding and application questions
+    - Hard: Analysis and evaluation questions
+    
+    Generate 10 questions based on this context: {context}
+    """
+
     llm = ChatOpenAI(
         temperature=0.5, model="gpt-4", openai_api_key=st.session_state.openai_api_key
     )
 
-    def generate_questions(context):
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """
-                You are a teacher creating a quiz based on the provided text. Generate 10 questions, each with four options. One option should be correct, marked with (o). Example:
-                Question: What is the color of the ocean?
-                Answers: Red|Yellow|Green|Blue(o)
+    response = llm.invoke(system_prompt)
+    return json.loads(response.content)
 
-                Context: {context}
-                """,
-                )
-            ]
-        )
-        chain = prompt | llm
-        result = chain.invoke({"context": context})  # Use invoke instead of run
-        return result.content  # Extract the text content from AIMessage
 
-    def parse_questions(questions_text):
-        class JsonOutputParser(BaseOutputParser):
-            def parse(self, text):
-                text = text.replace("```", "").replace("json", "")
-                return json.loads(text)
+def process_file(file):
+    """Process uploaded files"""
+    file_type = file.name.split(".")[-1]
+    texts = []
 
-        output_parser = JsonOutputParser()
-        return output_parser.parse(questions_text)
+    if file_type == "pdf":
+        pdf_reader = PdfReader(file)
+        for page in pdf_reader.pages:
+            texts.append(page.extract_text())
+    elif file_type == "docx":
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+            temp_file.write(file.read())
+            temp_file.flush()
+            loader = UnstructuredFileLoader(temp_file.name)
+            splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            texts = loader.load_and_split(text_splitter=splitter)
+    elif file_type == "txt":
+        texts = file.read().decode("utf-8").splitlines()
+    return "\n".join(texts)
 
-    def process_file(file):
-        file_type = file.name.split(".")[-1]
-        texts = []
 
-        if file_type == "pdf":
-            pdf_reader = PdfReader(file)
-            for page in pdf_reader.pages:
-                texts.append(page.extract_text())
-        elif file_type == "docx":
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
-                temp_file.write(file.read())
-                temp_file.flush()
-                loader = UnstructuredFileLoader(temp_file.name)
-                splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-                texts = loader.load_and_split(text_splitter=splitter)
-        elif file_type == "txt":
-            texts = file.read().decode("utf-8").splitlines()
-        return "\n".join(texts)
-
+def main():
     st.title("QuizGPT")
+
+    if not st.session_state.openai_api_key:
+        st.warning("Please enter your OpenAI API Key in the sidebar to proceed.")
+        return
 
     docs = None
     if choice == "File":
@@ -91,7 +114,7 @@ else:
         )
         if uploaded_file:
             docs = process_file(uploaded_file)
-    elif choice == "Wikipedia Article":
+    else:
         topic = st.text_input("Search Wikipedia:")
         if topic:
             retriever = WikipediaRetriever(top_k_results=1)
@@ -99,14 +122,15 @@ else:
             docs = results[0].page_content if results else ""
 
     if docs:
-        questions_text = generate_questions(
-            docs
-        )  # Generate questions using updated `invoke`
-        parsed_questions = parse_questions(questions_text)
+        if st.session_state.quiz_state is None:
+            st.session_state.quiz_state = generate_quiz(docs, difficulty)
 
         with st.form("quiz_form"):
-            st.write("### Quiz Questions")
-            for question in parsed_questions["questions"]:
+            st.write(f"### {difficulty} Level Quiz")
+            correct_count = 0
+            total_questions = len(st.session_state.quiz_state["questions"])
+
+            for question in st.session_state.quiz_state["questions"]:
                 st.write(question["question"])
                 options = [answer["answer"] for answer in question["answers"]]
                 selected_option = st.radio(
@@ -114,9 +138,10 @@ else:
                 )
 
             submit = st.form_submit_button("Submit")
+
             if submit:
-                for question in parsed_questions["questions"]:
-                    selected_option = st.session_state.get(question["question"])
+                for question in st.session_state.quiz_state["questions"]:
+                    selected_option = st.session_state[question["question"]]
                     correct_option = next(
                         answer["answer"]
                         for answer in question["answers"]
@@ -124,7 +149,21 @@ else:
                     )
                     if selected_option == correct_option:
                         st.success(f"Correct: {question['question']}")
+                        correct_count += 1
                     else:
                         st.error(
                             f"Wrong: {question['question']} (Correct: {correct_option})"
                         )
+
+                if correct_count == total_questions:
+                    st.balloons()
+                    st.success("🎉 Perfect Score! Congratulations!")
+                else:
+                    st.warning(f"Score: {correct_count}/{total_questions}")
+                    if st.button("Retake Quiz"):
+                        st.session_state.quiz_state = generate_quiz(docs, difficulty)
+                        st.experimental_rerun()
+
+
+if __name__ == "__main__":
+    main()
