@@ -1,7 +1,7 @@
 import streamlit as st
 from langchain_community.retrievers import WikipediaRetriever
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema import BaseOutputParser
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.document_loaders import UnstructuredFileLoader
@@ -32,7 +32,9 @@ if not st.session_state.openai_api_key:
     st.warning("Please enter your OPENAI API KEY in the sidebar to proceed.")
 else:
     llm = ChatOpenAI(
-        temperature=0.5, model="gpt-4", openai_api_key=st.session_state.openai_api_key
+        temperature=0.5,
+        model="gpt-4o-mini",
+        openai_api_key=st.session_state.openai_api_key,
     )
 
     def generate_questions(context):
