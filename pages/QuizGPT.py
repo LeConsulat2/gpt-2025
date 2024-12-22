@@ -49,163 +49,105 @@ with st.sidebar:
 def generate_quiz(context, difficulty):
     """Generate quiz questions using function calling"""
     system_prompt = f"""
-    You are a teacher creating a {difficulty.lower()}-level quiz.
-    Generate completely new and different questions each time.
-    Generate questions as a JSON object with the following structure:
+    You must respond with valid JSON only.
+    Create a {difficulty.lower()}-level quiz with exactly this JSON structure:
     {{
         "questions": [
             {{
-                "question": "question text",
+                "question": "What is an example question?",
                 "answers": [
-                    {{"answer": "option 1", "correct": false}},
-                    {{"answer": "option 2", "correct": true}},
-                    {{"answer": "option 3", "correct": false}},
-                    {{"answer": "option 4", "correct": false}}
+                    {{"answer": "Wrong answer 1", "correct": false}},
+                    {{"answer": "Correct answer", "correct": true}},
+                    {{"answer": "Wrong answer 2", "correct": false}},
+                    {{"answer": "Wrong answer 3", "correct": false}}
                 ]
             }}
         ]
     }}
     
-    For {difficulty.lower()} difficulty:
+    Rules for {difficulty.lower()} difficulty:
     - Easy: Basic recall and simple comprehension questions
     - Medium: Understanding and application questions
     - Hard: Analysis and evaluation questions with more complex options
     
-    Generate 10 different questions based on this context: {context}
-    Make sure to randomize the order of questions and answers each time.
+    Create 10 questions about this content: {context}
+    Important: Return ONLY the JSON object with no additional text or formatting.
     """
 
-    llm = ChatOpenAI(
-        temperature=0.9,  # Increased for more variety
-        model="gpt-4o-mini",
-        openai_api_key=st.session_state.openai_api_key,
-    )
-
-    response = llm.invoke(system_prompt)
-    return json.loads(response.content)
-
-
-def read_docx(file):
-    doc = docx.Document(file)
-    text = []
-    for paragraph in doc.paragraphs:
-        text.append(paragraph.text)
-    return "\n".join(text)
-
-
-def process_file(file):
-    """Process uploaded files"""
-    text = ""
-    file_type = file.name.split(".")[-1].lower()
-
     try:
-        if file_type == "pdf":
-            pdf_reader = PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        elif file_type == "txt":
-            text = file.getvalue().decode("utf-8")
-        elif file_type == "docx":
-            # Create a temporary file to save the uploaded file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_file:
-                tmp_file.write(file.getvalue())
-                tmp_file.flush()
-                text = read_docx(tmp_file.name)
-            # Clean up the temporary file
-            os.unlink(tmp_file.name)
-        else:
-            st.error(f"Unsupported file type: {file_type}")
-            return None
-        return text
+        llm = ChatOpenAI(
+            temperature=0.7,
+            model="gpt-4",
+            openai_api_key=st.session_state.openai_api_key,
+        )
+
+        response = llm.invoke(system_prompt)
+
+        # Try to parse the JSON response
+        try:
+            quiz_data = json.loads(response.content)
+            # Validate the quiz structure
+            if not isinstance(quiz_data, dict) or "questions" not in quiz_data:
+                raise ValueError("Invalid quiz structure")
+            return quiz_data
+        except json.JSONDecodeError:
+            # If direct parsing fails, try to extract JSON from the response
+            content = response.content
+            # Find the first { and last } to extract just the JSON part
+            start = content.find("{")
+            end = content.rfind("}") + 1
+            if start != -1 and end != 0:
+                try:
+                    quiz_data = json.loads(content[start:end])
+                    if not isinstance(quiz_data, dict) or "questions" not in quiz_data:
+                        raise ValueError("Invalid quiz structure")
+                    return quiz_data
+                except:
+                    pass
+
+            # If all parsing attempts fail, return a default quiz
+            return {
+                "questions": [
+                    {
+                        "question": "Error generating quiz. Would you like to try again?",
+                        "answers": [
+                            {"answer": "Yes, regenerate the quiz", "correct": True},
+                            {"answer": "No, keep these questions", "correct": False},
+                            {
+                                "answer": "Try with different difficulty",
+                                "correct": False,
+                            },
+                            {"answer": "Try with different content", "correct": False},
+                        ],
+                    }
+                ]
+            }
     except Exception as e:
-        st.error(f"Error processing file: {str(e)}")
-        return None
+        st.error(f"Error generating quiz: {str(e)}")
+        return {
+            "questions": [
+                {
+                    "question": "Error generating quiz. Would you like to try again?",
+                    "answers": [
+                        {"answer": "Yes, regenerate the quiz", "correct": True},
+                        {"answer": "No, keep these questions", "correct": False},
+                        {"answer": "Try with different difficulty", "correct": False},
+                        {"answer": "Try with different content", "correct": False},
+                    ],
+                }
+            ]
+        }
 
 
 def regenerate_quiz():
-    st.session_state.quiz_key += 1
-    if st.session_state.current_doc:
-        st.session_state.quiz_state = generate_quiz(
-            st.session_state.current_doc, difficulty
-        )
-
-
-def main():
-    st.title("QuizGPT")
-
-    if not st.session_state.openai_api_key:
-        st.warning("Please enter your OpenAI API Key in the sidebar to proceed.")
-        return
-
-    docs = None
-    if choice == "File":
-        uploaded_file = st.file_uploader(
-            "Upload a file (pdf, docx, txt):", type=["pdf", "docx", "txt"]
-        )
-        if uploaded_file:
-            docs = process_file(uploaded_file)
-    else:
-        topic = st.text_input("Search Wikipedia:")
-        if topic:
-            retriever = WikipediaRetriever(top_k_results=1)
-            results = retriever.get_relevant_documents(topic)
-            docs = results[0].page_content if results else ""
-
-    if docs:
-        # Store the current document
-        st.session_state.current_doc = docs
-
-        # Generate new quiz if needed
-        if st.session_state.quiz_state is None:
-            st.session_state.quiz_state = generate_quiz(docs, difficulty)
-
-        # Add a button to generate new questions
-        if st.button("Generate New Questions"):
-            regenerate_quiz()
-
-        with st.form(f"quiz_form_{st.session_state.quiz_key}"):
-            st.write(f"### {difficulty} Level Quiz")
-            correct_count = 0
-            total_questions = len(st.session_state.quiz_state["questions"])
-
-            for question in st.session_state.quiz_state["questions"]:
-                st.write(question["question"])
-                options = [answer["answer"] for answer in question["answers"]]
-                selected_option = st.radio(
-                    "Select an option:",
-                    options,
-                    key=f"{question['question']}_{st.session_state.quiz_key}",
-                )
-
-            submit = st.form_submit_button("Submit")
-
-            if submit:
-                for question in st.session_state.quiz_state["questions"]:
-                    selected_option = st.session_state[
-                        f"{question['question']}_{st.session_state.quiz_key}"
-                    ]
-                    correct_option = next(
-                        answer["answer"]
-                        for answer in question["answers"]
-                        if answer["correct"]
-                    )
-                    if selected_option == correct_option:
-                        st.success(f"Correct: {question['question']}")
-                        correct_count += 1
-                    else:
-                        st.error(
-                            f"Wrong: {question['question']} (Correct: {correct_option})"
-                        )
-
-                if correct_count == total_questions:
-                    st.balloons()
-                    st.success("🎉 Perfect Score! Congratulations!")
-                else:
-                    st.warning(f"Score: {correct_count}/{total_questions}")
-                    if st.button("Retake Quiz"):
-                        regenerate_quiz()
-                        st.experimental_rerun()
-
-
-if __name__ == "__main__":
-    main()
+    """Regenerate the quiz with proper error handling"""
+    try:
+        st.session_state.quiz_key += 1
+        if st.session_state.current_doc:
+            new_quiz = generate_quiz(st.session_state.current_doc, difficulty)
+            if new_quiz and "questions" in new_quiz:
+                st.session_state.quiz_state = new_quiz
+            else:
+                st.error("Failed to generate new questions. Please try again.")
+    except Exception as e:
+        st.error(f"Error regenerating quiz: {str(e)}")
