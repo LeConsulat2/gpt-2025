@@ -42,7 +42,9 @@ documentation_urls = load_documentation_urls(sitemap_url, docs_urls)
 # Streamlit Sidebar
 st.sidebar.title("SiteGPT for Cloudflare Docs")
 user_api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
-st.sidebar.markdown("[View on GitHub](https://github.com/example-repo)")
+st.sidebar.markdown(
+    "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/SitemapGPT.py)"
+)
 
 if not user_api_key:
     st.warning("Please enter your OpenAI API Key to continue.")
