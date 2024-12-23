@@ -53,21 +53,15 @@ embeddings = OpenAIEmbeddings(openai_api_key=user_api_key)
 docs = []
 
 # Load and process documentation
-st.write("Loading documentation...")
 for product, urls in documentation_urls.items():
     for url in urls:
-        try:
-            loader = WebBaseLoader(url)
-            loaded_docs = loader.load()
-            for doc in loaded_docs:
-                # Ensure documents have metadata for source tracking
-                doc.metadata["source"] = url
-                docs.append(doc)
-        except Exception as e:
-            st.warning(f"Failed to load {url}: {e}")
+        loader = WebBaseLoader(url)
+        loaded_docs = loader.load()
+        for doc in loaded_docs:
+            doc.metadata["source"] = url
+            docs.append(doc)
 
 # Create a vector store
-st.write("Building vector store...")
 vector_store = FAISS.from_documents(docs, embeddings)
 
 # Create a Retrieval-based QA Chain
@@ -85,15 +79,11 @@ st.write(", ".join(docs_urls.keys()))
 
 question = st.text_input("Enter your question:")
 if question:
-    with st.spinner("Searching documentation..."):
-        try:
-            result = qa_chain(question)
-            st.success("Here's the answer:")
-            st.write(result["result"])
+    result = qa_chain(question)
+    st.success("Here's the answer:")
+    st.write(result["result"])
 
-            # Show sources
-            st.write("Sources:")
-            for doc in result["source_documents"]:
-                st.write(doc.metadata["source"])
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+    # Show sources
+    st.write("Sources:")
+    for doc in result["source_documents"]:
+        st.write(doc.metadata["source"])
