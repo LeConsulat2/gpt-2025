@@ -69,7 +69,11 @@ vector_store = FAISS.from_documents(docs, embeddings)
 # Create a Retrieval-based QA Chain
 retriever = vector_store.as_retriever()
 qa_chain = RetrievalQA.from_chain_type(
-    llm=ChatOpenAI(temperature=0, openai_api_key=user_api_key),
+    llm=ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0.1,
+        openai_api_key=user_api_key,
+    ),
     retriever=retriever,
     return_source_documents=True,
 )
