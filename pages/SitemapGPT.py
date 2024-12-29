@@ -123,26 +123,34 @@ if question:
     with st.spinner("Fetching the response..."):
         docs = chain_dict["retriever"].invoke({"chat_history": [], "input": question})
 
-        if isinstance(docs, list) and all(hasattr(doc, "page_content") for doc in docs):
-            context = "\n\n".join([doc.page_content for doc in docs])
-            answer = chain_dict["combine_docs_chain"].invoke(
-                {
-                    "context": context,
-                    "input": question,
-                }
-            )
+        # 데이터 검증
+        if isinstance(docs, list):
+            valid_docs = [
+                doc
+                for doc in docs
+                if hasattr(doc, "page_content") and hasattr(doc, "metadata")
+            ]
 
-            st.success("Here's the answer:")
-            st.write(answer)
+            if valid_docs:
+                context = "\n\n".join([doc.page_content for doc in valid_docs])
+                answer = chain_dict["combine_docs_chain"].invoke(
+                    {
+                        "context": context,
+                        "input": question,
+                    }
+                )
 
-            st.write("Sources:")
-            sources = set(
-                doc.metadata["source"] for doc in docs if hasattr(doc, "metadata")
-            )
-            for source in sources:
-                st.markdown(f"- [{source}]({source})")
+                st.success("Here's the answer:")
+                st.write(answer)
 
-            st.session_state.messages.append(("human", question))
-            st.session_state.messages.append(("assistant", answer))
+                st.write("Sources:")
+                sources = set(doc.metadata["source"] for doc in valid_docs)
+                for source in sources:
+                    st.markdown(f"- [{source}]({source})")
+
+                st.session_state.messages.append(("human", question))
+                st.session_state.messages.append(("assistant", answer))
+            else:
+                st.error("No valid documents found.")
         else:
-            st.error("No relevant documents retrieved or invalid document structure.")
+            st.error("Invalid document structure returned.")
