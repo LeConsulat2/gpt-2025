@@ -116,77 +116,34 @@ st.write(", ".join(docs_urls.keys()))
 # Chat interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
 
 # User input
 question = st.text_input("Enter your question:")
 if question:
     with st.spinner("Fetching the response..."):
-        # Stream documents with history-aware retriever
-        retriever_input = {
-            "chat_history": st.session_state.chat_history,
-            "input": question,
-        }
-
-        # Stream documents
-        doc_stream = chain_dict["retriever"].stream(retriever_input)
-        docs = []
-
-        for doc in doc_stream:
-            # 디버깅용 출력: 반환된 데이터 타입과 내용을 확인
-            st.write(f"Retrieved document: {doc} (Type: {type(doc)})")
-
-            # 문자열이 반환될 경우 무시하거나 로깅
-            if isinstance(doc, str):
-                st.write(f"Skipped unexpected string: {doc}")
-                continue
-
-            # 올바른 객체인지 확인
-            if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
-                docs.append(doc)
-            else:
-                st.write(f"Invalid object structure: {doc}")
-
-        # Ensure docs are valid
-        if docs:
-            context = "\n\n".join(
-                [doc.page_content for doc in docs if hasattr(doc, "page_content")]
-            )
-        else:
-            context = "No relevant documents found."
-
-        # Stream the answer
-        answer_stream = chain_dict["combine_docs_chain"].stream(
-            {"context": context, "input": question}
+        docs = chain_dict["retriever"].invoke(
+            {"chat_history": st.session_state.messages, "input": question}
         )
-        st.success("Here's the answer:")
-        answer_text = ""
-
-        # Debugging: output the structure and type of each chunk
-        for chunk in answer_stream:
-            st.write(f"Answer chunk: {chunk} (Type: {type(chunk)})")
-
-            # 문자열만 처리
-            if isinstance(chunk, str):
-                answer_text += chunk
-                st.write(answer_text)  # Dynamically update the UI
-            else:
-                st.write(f"Unexpected non-string chunk: {chunk}")
-
-        # Display sources
-        st.write("Sources:")
-        if docs:
-            sources = set(
-                doc.metadata["source"] for doc in docs if hasattr(doc, "metadata")
+        if isinstance(docs, list) and all(hasattr(doc, "page_content") for doc in docs):
+            context = "\n\n".join([doc.page_content for doc in docs])
+            answer = chain_dict["combine_docs_chain"].invoke(
+                {
+                    "context": context,
+                    "input": question,
+                }
             )
+
+            st.success("Here's the answer:")
+            st.write(answer)
+
+            st.write("Sources:")
+            sources = set(doc.metadata["source"] for doc in docs)
             for source in sources:
                 st.markdown(f"- [{source}]({source})")
-        else:
-            st.write("No sources available.")
 
-        # Update chat history
-        st.session_state.chat_history.append({"role": "human", "content": question})
-        st.session_state.chat_history.append(
-            {"role": "assistant", "content": answer_text}
-        )
+            st.session_state.messages.append(("human", question))
+            st.session_state.messages.append(("assistant", answer))
+        else:
+            st.error(
+                "No relevant documents were retrieved or invalid document structure."
+            )
