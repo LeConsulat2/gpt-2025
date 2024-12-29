@@ -134,18 +134,23 @@ if question:
         docs = []
 
         for doc in doc_stream:
-            # Ensure the object is a string or has page_content attribute
+            # 디버깅용 출력: 반환된 데이터 타입과 내용을 확인
+            st.write(f"Retrieved document: {doc} (Type: {type(doc)})")
+
+            # 문자열이 반환될 경우 무시하거나 로깅
             if isinstance(doc, str):
                 st.write(f"Skipped unexpected string: {doc}")
                 continue
+
+            # 올바른 객체인지 확인
             if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
                 docs.append(doc)
+            else:
+                st.write(f"Invalid object structure: {doc}")
 
         # Ensure docs are valid
         if docs:
-            context = "\n\n".join(
-                [doc.page_content for doc in docs if hasattr(doc, "page_content")]
-            )
+            context = "\n\n".join([doc.page_content for doc in docs])
         else:
             context = "No relevant documents found."
 
@@ -157,7 +162,10 @@ if question:
         answer_text = ""
 
         for chunk in answer_stream:
-            # Handle the possibility that chunk is a string
+            # 디버깅용 출력: 반환된 데이터 타입과 내용을 확인
+            st.write(f"Answer chunk: {chunk} (Type: {type(chunk)})")
+
+            # 문자열 처리
             if isinstance(chunk, str):
                 answer_text += chunk
                 st.write(answer_text)  # Dynamically update the UI
