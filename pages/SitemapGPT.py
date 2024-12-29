@@ -129,22 +129,27 @@ if question:
             "input": question,
         }
 
-        # Stream documents chunk by chunk
+        # Stream documents
         doc_stream = chain_dict["retriever"].stream(retriever_input)
         docs = []
 
-        for chunk in doc_stream:
-            # Ensure the chunk is properly structured
-            if hasattr(chunk, "page_content") and hasattr(chunk, "metadata"):
-                docs.append(chunk)
+        for doc in doc_stream:
+            # Ensure the object is a string or has page_content attribute
+            if isinstance(doc, str):
+                st.write(f"Skipped unexpected string: {doc}")
+                continue
+            if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
+                docs.append(doc)
 
         # Ensure docs are valid
         if docs:
-            context = "\n\n".join([chunk.page_content for chunk in docs])
+            context = "\n\n".join(
+                [doc.page_content for doc in docs if hasattr(doc, "page_content")]
+            )
         else:
             context = "No relevant documents found."
 
-        # Stream the answer chunk by chunk
+        # Stream the answer
         answer_stream = chain_dict["combine_docs_chain"].stream(
             {"context": context, "input": question}
         )
@@ -152,14 +157,18 @@ if question:
         answer_text = ""
 
         for chunk in answer_stream:
-            answer_text += chunk
-            st.write(answer_text)  # Dynamically update the UI
+            # Handle the possibility that chunk is a string
+            if isinstance(chunk, str):
+                answer_text += chunk
+                st.write(answer_text)  # Dynamically update the UI
+            else:
+                st.write(f"Unexpected non-string chunk: {chunk}")
 
         # Display sources
         st.write("Sources:")
         if docs:
             sources = set(
-                chunk.metadata["source"] for chunk in docs if hasattr(chunk, "metadata")
+                doc.metadata["source"] for doc in docs if hasattr(doc, "metadata")
             )
             for source in sources:
                 st.markdown(f"- [{source}]({source})")
