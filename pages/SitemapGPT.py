@@ -6,7 +6,7 @@ from langchain_openai.chat_models import ChatOpenAI
 from langchain_openai.embeddings import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains import create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
 
 # Constants for the documentation URLs
@@ -45,9 +45,8 @@ if not user_api_key:
     st.stop()
 
 
-# Load and process documentation
 @st.cache_resource
-def initialize_retrieval_chain():
+def initialize_chain():
     embeddings = OpenAIEmbeddings(openai_api_key=user_api_key)
     llm = ChatOpenAI(temperature=0.3, openai_api_key=user_api_key)
     docs = []
@@ -67,14 +66,12 @@ def initialize_retrieval_chain():
                 split.metadata["source"] = url
                 docs.append(split)
 
-    # Create vector store
     vector_store = FAISS.from_texts(
         texts=[doc.page_content for doc in docs],
         embedding=embeddings,
         metadatas=[doc.metadata for doc in docs],
     )
 
-    # Setup retriever with chat history
     retriever = vector_store.as_retriever()
 
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
@@ -92,28 +89,24 @@ def initialize_retrieval_chain():
         llm=llm, retriever=retriever, prompt=contextualize_q_prompt
     )
 
-    # Create the final chain
-    combine_docs_prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are an assistant for question-answering tasks. Use the following context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.",
-            ),
-            ("human", "{context}\nQuestion: {input}"),
-        ]
-    )
-
-    return create_retrieval_chain(
+    chain = create_stuff_documents_chain(
         llm=llm,
-        retriever=history_aware_retriever,
-        combine_documents_chain=create_stuff_documents_chain(
-            llm=llm, prompt=combine_docs_prompt
+        prompt=ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "You are an assistant for question-answering tasks. Use the following context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.",
+                ),
+                ("human", "{context}\nQuestion: {input}"),
+            ]
         ),
     )
 
+    return {"retriever": history_aware_retriever, "combine_docs_chain": chain}
+
 
 # Initialize chain
-chain = initialize_retrieval_chain()
+chain_dict = initialize_chain()
 
 # Main interface
 st.title("Cloudflare Documentation Assistant")
@@ -128,17 +121,23 @@ if "messages" not in st.session_state:
 question = st.text_input("Enter your question:")
 if question:
     with st.spinner("Fetching the response..."):
-        result = chain.invoke(
+        docs = chain_dict["retriever"].get_relevant_documents(
             {"input": question, "chat_history": st.session_state.messages}
+        )
+        answer = chain_dict["combine_docs_chain"].invoke(
+            {
+                "context": "\n\n".join([doc.page_content for doc in docs]),
+                "input": question,
+            }
         )
 
         st.success("Here's the answer:")
-        st.write(result["answer"])
+        st.write(answer)
 
         st.write("Sources:")
-        sources = set(doc.metadata["source"] for doc in result["documents"])
+        sources = set(doc.metadata["source"] for doc in docs)
         for source in sources:
             st.markdown(f"- [{source}]({source})")
 
         st.session_state.messages.append(("human", question))
-        st.session_state.messages.append(("assistant", result["answer"]))
+        st.session_state.messages.append(("assistant", answer))
