@@ -114,7 +114,6 @@ st.write("Ask me anything about the following Cloudflare products:")
 st.write(", ".join(docs_urls.keys()))
 
 # Chat interface
-# Chat interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_history" not in st.session_state:
@@ -134,10 +133,17 @@ if question:
         doc_stream = chain_dict["retriever"].stream(retriever_input)
         docs = []
         for doc in doc_stream:
+            # 디버깅용 출력
+            st.write(doc)  # 반환된 객체의 구조를 확인
             docs.append(doc)
 
+        # Check if docs have valid structure
+        if docs and hasattr(docs[0], "page_content"):
+            context = "\n\n".join([doc.page_content for doc in docs])
+        else:
+            context = "No valid documents retrieved."
+
         # Stream the answer
-        context = "\n\n".join([doc.page_content for doc in docs])
         answer_stream = chain_dict["combine_docs_chain"].stream(
             {"context": context, "input": question}
         )
@@ -149,7 +155,9 @@ if question:
             st.write(answer_text)  # Dynamically update the UI
 
         st.write("Sources:")
-        sources = set(doc.metadata["source"] for doc in docs)
+        sources = set(
+            doc.metadata["source"] for doc in docs if hasattr(doc, "metadata")
+        )
         for source in sources:
             st.markdown(f"- [{source}]({source})")
 
