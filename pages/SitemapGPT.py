@@ -70,8 +70,12 @@ for product, urls in documentation_urls.items():
             split.metadata["source"] = url
             docs.append(split)
 
+# Extract text and metadata for embedding
+texts = [doc.page_content for doc in docs]
+metadata = [doc.metadata for doc in docs]
+
 # Create a vector store
-vector_store = FAISS.from_documents(documents=docs, embedding=embeddings)
+vector_store = FAISS.from_texts(texts=texts, embedding=embeddings, metadatas=metadata)
 
 # Contextualize question
 contextualize_q_system_prompt = (
