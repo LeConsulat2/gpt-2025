@@ -29,7 +29,6 @@ def load_documentation_urls(sitemap_url, products):
             for line in sitemap.splitlines()
             if base_url in line
         ]
-
     return product_urls
 
 
@@ -128,7 +127,6 @@ if question:
         if isinstance(docs, list):
             for doc in docs:
                 if isinstance(doc, str):
-                    # Skip if the doc is a string
                     continue
                 if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
                     valid_docs.append(doc)
@@ -141,7 +139,6 @@ if question:
                     "input": question,
                 }
             )
-
             st.success("Here's the answer:")
             st.write(answer)
 
