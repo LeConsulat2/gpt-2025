@@ -1,11 +1,14 @@
 import streamlit as st
 import requests
-from langchain.document_loaders import WebBaseLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import Document
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.vectorstores import FAISS
+from langchain_openai.chat_models import ChatOpenAI
+from langchain_openai.embeddings import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from streamlit import st_empty
+from langchain.chains.combine_documents import create_stuff_documents_chain
 
 # Constants for the documentation URLs
 docs_urls = {
@@ -43,7 +46,7 @@ documentation_urls = load_documentation_urls(sitemap_url, docs_urls)
 st.sidebar.title("SiteGPT for Cloudflare Docs")
 user_api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
 st.sidebar.markdown(
-    "[View on GitHub]https://github.com/LeConsulat2/gpt-2025/blob/master/pages/SitemapGPT.py)"
+    "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/SitemapGPT.py)"
 )
 
 if not user_api_key:
@@ -58,24 +61,69 @@ docs = []
 for product, urls in documentation_urls.items():
     for url in urls:
         loader = WebBaseLoader(url)
-        loaded_docs = loader.load()
-        for doc in loaded_docs:
-            doc.metadata["source"] = url
-            docs.append(doc)
+        data = loader.load()
+
+        # Split the loaded documents
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=0)
+        all_splits = text_splitter.split_documents(data)
+
+        for split in all_splits:
+            split.metadata["source"] = url
+            docs.append(split)
 
 # Create a vector store
-vector_store = FAISS.from_documents(docs, embeddings)
+vector_store = FAISS.from_documents(documents=docs, embedding=embeddings)
 
-# Create a Retrieval-based QA Chain
+# Contextualize question
+contextualize_q_system_prompt = (
+    "Given a chat history and the latest user question "
+    "which might reference context in the chat history, "
+    "formulate a standalone question which can be understood "
+    "without the chat history. Do NOT answer the question, just "
+    "reformulate it if needed and otherwise return it as is."
+)
+contextualize_q_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", contextualize_q_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
 retriever = vector_store.as_retriever()
-qa_chain = RetrievalQA.from_chain_type(
-    llm=ChatOpenAI(
+history_aware_retriever = create_history_aware_retriever(
+    ChatOpenAI(
         model="gpt-4o-mini",
-        temperature=0.1,
+        temperature=0.3,
         openai_api_key=user_api_key,
     ),
-    retriever=retriever,
-    return_source_documents=True,
+    retriever,
+    contextualize_q_prompt,
+)
+
+# Answer question
+qa_system_prompt = (
+    "You are an assistant for question-answering tasks. Use "
+    "the following pieces of retrieved context to answer the "
+    "question. If you don't know the answer, just say that you "
+    "don't know. Use three sentences maximum and keep the answer "
+    "concise."
+)
+retrieval_chain = create_retrieval_chain(
+    llm=ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0.3,
+        openai_api_key=user_api_key,
+    ),
+    retriever=history_aware_retriever,
+    combine_documents_chain=create_stuff_documents_chain(
+        ChatPromptTemplate.from_messages(
+            [
+                ("system", qa_system_prompt),
+                MessagesPlaceholder("input_documents"),
+                ("human", "{input}"),
+            ]
+        )
+    ),
 )
 
 # Streamlit Main Interface
@@ -83,14 +131,17 @@ st.title("Cloudflare Documentation Assistant")
 st.write("Ask me anything about the following Cloudflare products:")
 st.write(", ".join(docs_urls.keys()))
 
+# User Query
 question = st.text_input("Enter your question:")
+placeholder = st.empty()
 if question:
-    result = qa_chain(question)
-    st.success("Here's the answer:")
-    st.write(result["result"])
+    with st.spinner("Fetching the response..."):
+        result = retrieval_chain({"input": question})
+        placeholder.success("Here's the answer:")
+        placeholder.write(result["output"])
 
-    # Show sources with distinct URLs
-    st.write("Sources:")
-    sources = set(doc.metadata["source"] for doc in result["source_documents"])
-    for source in sources:
-        st.write(source)
+        # Show sources with distinct URLs
+        st.write("Sources:")
+        sources = set(doc.metadata["source"] for doc in result["source_documents"])
+        for source in sources:
+            st.markdown(f"- [{source}]({source})")
