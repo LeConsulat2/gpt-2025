@@ -124,33 +124,33 @@ if question:
         docs = chain_dict["retriever"].invoke({"chat_history": [], "input": question})
 
         # Ensure valid documents
+        valid_docs = []
         if isinstance(docs, list):
-            valid_docs = [
-                doc
-                for doc in docs
-                if hasattr(doc, "page_content") and hasattr(doc, "metadata")
-            ]
+            for doc in docs:
+                if isinstance(doc, str):
+                    # Skip if the doc is a string
+                    continue
+                if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
+                    valid_docs.append(doc)
 
-            if valid_docs:
-                context = "\n\n".join([doc.page_content for doc in valid_docs])
-                answer = chain_dict["combine_docs_chain"].invoke(
-                    {
-                        "context": context,
-                        "input": question,
-                    }
-                )
+        if valid_docs:
+            context = "\n\n".join([doc.page_content for doc in valid_docs])
+            answer = chain_dict["combine_docs_chain"].invoke(
+                {
+                    "context": context,
+                    "input": question,
+                }
+            )
 
-                st.success("Here's the answer:")
-                st.write(answer)
+            st.success("Here's the answer:")
+            st.write(answer)
 
-                st.write("Sources:")
-                sources = set(doc.metadata["source"] for doc in valid_docs)
-                for source in sources:
-                    st.markdown(f"- [{source}]({source})")
+            st.write("Sources:")
+            sources = set(doc.metadata["source"] for doc in valid_docs)
+            for source in sources:
+                st.markdown(f"- [{source}]({source})")
 
-                st.session_state.messages.append(("human", question))
-                st.session_state.messages.append(("assistant", answer))
-            else:
-                st.error("No valid documents found.")
+            st.session_state.messages.append(("human", question))
+            st.session_state.messages.append(("assistant", answer))
         else:
-            st.error("Invalid document structure returned.")
+            st.error("No valid documents found or invalid document structure.")
