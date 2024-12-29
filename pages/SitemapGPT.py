@@ -92,18 +92,26 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages(
         ("human", "{input}"),
     ]
 )
-retriever = vector_store.as_retriever()
-history_aware_retriever = create_history_aware_retriever(
+
+
+llm = (
     ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0.3,
         openai_api_key=user_api_key,
     ),
+)
+
+retriever = vector_store.as_retriever()
+history_aware_retriever = create_history_aware_retriever(
+    llm,
     retriever,
     contextualize_q_prompt,
 )
 
+
 # Answer question
+# Correct prompt for combining documents
 qa_system_prompt = (
     "You are an assistant for question-answering tasks. Use "
     "the following pieces of retrieved context to answer the "
@@ -111,23 +119,20 @@ qa_system_prompt = (
     "don't know. Use three sentences maximum and keep the answer "
     "concise."
 )
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.3,
-    openai_api_key=user_api_key,
+
+combine_documents_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", qa_system_prompt),
+        MessagesPlaceholder("context"),  # Use 'context' as required by LangChain
+    ]
 )
+
+# Create the chain
 retrieval_chain = create_retrieval_chain(
     llm=llm,
     retriever=history_aware_retriever,
     combine_documents_chain=create_stuff_documents_chain(
-        llm=llm,
-        prompt=ChatPromptTemplate.from_messages(
-            [
-                ("system", qa_system_prompt),
-                MessagesPlaceholder("input_documents"),
-                ("human", "{input}"),
-            ]
-        ),
+        llm=llm, prompt=combine_documents_prompt  # Pass the corrected prompt
     ),
 )
 
