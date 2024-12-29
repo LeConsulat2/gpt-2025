@@ -63,7 +63,7 @@ for product, urls in documentation_urls.items():
         data = loader.load()
 
         # Split the loaded documents
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=0)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         all_splits = text_splitter.split_documents(data)
 
         for split in all_splits:
