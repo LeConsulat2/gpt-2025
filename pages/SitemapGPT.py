@@ -88,20 +88,30 @@ def initialize_chain():
         llm=llm, retriever=retriever, prompt=contextualize_q_prompt
     )
 
+    # chain 생성
     chain = create_stuff_documents_chain(
         llm=llm,
         prompt=ChatPromptTemplate.from_messages(
             [
                 (
                     "system",
-                    "You are an assistant for question-answering tasks. Use the following context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.",
+                    "You are an assistant for question-answering tasks. "
+                    "Use the following context to answer the question. "
+                    "If you don't know the answer, just say that you don't know. "
+                    "Use three sentences maximum and keep the answer concise.",
                 ),
-                ("human", "{context}\nQuestion: {input}"),
+                ("human", "{question}"),
             ]
         ),
     )
 
-    return {"retriever": history_aware_retriever, "combine_docs_chain": chain}
+    # 체인 호출
+    answer = chain.invoke(
+        {
+            "input_documents": valid_docs,  # Document 타입의 리스트
+            "question": question,  # 질문
+        }
+    )
 
 
 # Initialize chain
