@@ -129,35 +129,37 @@ if question:
             "input": question,
         }
 
-        # Stream documents
+        # Stream documents chunk by chunk
         doc_stream = chain_dict["retriever"].stream(retriever_input)
         docs = []
 
-        for doc in doc_stream:
-            # 명확하게 `Document` 객체만 처리
-            if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
-                docs.append(doc)
+        for chunk in doc_stream:
+            # Ensure the chunk is properly structured
+            if hasattr(chunk, "page_content") and hasattr(chunk, "metadata"):
+                docs.append(chunk)
 
         # Ensure docs are valid
         if docs:
-            context = "\n\n".join([doc.page_content for doc in docs])
+            context = "\n\n".join([chunk.page_content for chunk in docs])
         else:
             context = "No relevant documents found."
 
-        # Stream the answer
+        # Stream the answer chunk by chunk
         answer_stream = chain_dict["combine_docs_chain"].stream(
             {"context": context, "input": question}
         )
+        st.success("Here's the answer:")
         answer_text = ""
-        for part in answer_stream:
-            answer_text += part
+
+        for chunk in answer_stream:
+            answer_text += chunk
             st.write(answer_text)  # Dynamically update the UI
 
         # Display sources
         st.write("Sources:")
         if docs:
             sources = set(
-                doc.metadata["source"] for doc in docs if hasattr(doc, "metadata")
+                chunk.metadata["source"] for chunk in docs if hasattr(chunk, "metadata")
             )
             for source in sources:
                 st.markdown(f"- [{source}]({source})")
