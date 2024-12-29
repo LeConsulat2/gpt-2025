@@ -8,6 +8,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.schema import Document
 
 # Constants for the documentation URLs
 docs_urls = {
@@ -22,7 +23,6 @@ def load_documentation_urls(sitemap_url, products):
     response = requests.get(sitemap_url)
     sitemap = response.text
     product_urls = {product: [] for product in products}
-
     for product, base_url in products.items():
         product_urls[product] = [
             line.split("<loc>")[1].split("</loc>")[0]
@@ -32,7 +32,7 @@ def load_documentation_urls(sitemap_url, products):
     return product_urls
 
 
-# Streamlit Interface Setup
+# Streamlit sidebar
 st.sidebar.title("SiteGPT for Cloudflare Docs")
 user_api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
 st.sidebar.markdown(
@@ -49,7 +49,6 @@ def initialize_chain():
     embeddings = OpenAIEmbeddings(openai_api_key=user_api_key)
     llm = ChatOpenAI(temperature=0.3, openai_api_key=user_api_key)
     docs = []
-
     documentation_urls = load_documentation_urls(sitemap_url, docs_urls)
 
     for product, urls in documentation_urls.items():
@@ -60,7 +59,6 @@ def initialize_chain():
                 chunk_size=500, chunk_overlap=50
             )
             all_splits = text_splitter.split_documents(data)
-
             for split in all_splits:
                 split.metadata["source"] = url
                 docs.append(split)
@@ -77,7 +75,9 @@ def initialize_chain():
         [
             (
                 "system",
-                "Given a chat history and the latest user question, formulate a standalone question which can be understood without the chat history. Do NOT answer the question, just reformulate it if needed and otherwise return it as is.",
+                "Given a chat history and the latest user question, "
+                "formulate a standalone question which can be understood without the chat history. "
+                "Do NOT answer the question, just reformulate it if needed and otherwise return it as is.",
             ),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
@@ -88,7 +88,6 @@ def initialize_chain():
         llm=llm, retriever=retriever, prompt=contextualize_q_prompt
     )
 
-    # chain 생성
     chain = create_stuff_documents_chain(
         llm=llm,
         prompt=ChatPromptTemplate.from_messages(
@@ -100,55 +99,57 @@ def initialize_chain():
                     "If you don't know the answer, just say that you don't know. "
                     "Use three sentences maximum and keep the answer concise.",
                 ),
-                ("human", "{question}"),
+                # {context}를 통해 문서 내용을, {question}을 통해 사용자 입력을 전달합니다.
+                ("human", "{context}\n\nQuestion: {question}"),
             ]
         ),
     )
 
-    # 체인 호출
-    answer = chain.invoke(
-        {
-            "input_documents": valid_docs,  # Document 타입의 리스트
-            "question": question,  # 질문
-        }
-    )
+    return {
+        "retriever": history_aware_retriever,
+        "combine_docs_chain": chain,
+    }
 
 
-# Initialize chain
 chain_dict = initialize_chain()
 
-# Main interface
 st.title("Cloudflare Documentation Assistant")
 st.write("Ask me anything about the following Cloudflare products:")
 st.write(", ".join(docs_urls.keys()))
 
-# Chat interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# User input
-question = st.text_input("Enter your question:")
-if question:
-    with st.spinner("Fetching the response..."):
-        docs = chain_dict["retriever"].invoke({"chat_history": [], "input": question})
+user_question = st.text_input("Enter your question:")
 
-        # Ensure valid documents
+if user_question:
+    with st.spinner("Fetching the response..."):
+        # 1) 먼저 대화 히스토리를 기반으로 질문을 재정의(필요 시)
+        reformed_docs = chain_dict["retriever"].invoke(
+            {
+                "chat_history": st.session_state.messages,
+                "input": user_question,
+            }
+        )
+
         valid_docs = []
-        if isinstance(docs, list):
-            for doc in docs:
+        if isinstance(reformed_docs, list):
+            for doc in reformed_docs:
                 if isinstance(doc, str):
                     continue
                 if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
                     valid_docs.append(doc)
 
         if valid_docs:
-            context = "\n\n".join([doc.page_content for doc in valid_docs])
+            # 2) Stuff chain에 문서와 최종 질문 전달
             answer = chain_dict["combine_docs_chain"].invoke(
                 {
-                    "context": context,
-                    "input": question,
+                    "input_documents": valid_docs,  # Document 리스트
+                    "question": user_question,  # 사용자 입력
                 }
             )
+            st.session_state.messages.append(("user", user_question))
+            st.session_state.messages.append(("assistant", answer))
             st.success("Here's the answer:")
             st.write(answer)
 
@@ -156,8 +157,9 @@ if question:
             sources = set(doc.metadata["source"] for doc in valid_docs)
             for source in sources:
                 st.markdown(f"- [{source}]({source})")
-
-            st.session_state.messages.append(("human", question))
-            st.session_state.messages.append(("assistant", answer))
         else:
             st.error("No valid documents found or invalid document structure.")
+
+# 대화 히스토리 표시 (선택사항)
+for role, msg in st.session_state.messages:
+    st.write(f"**{role.capitalize()}:** {msg}")
