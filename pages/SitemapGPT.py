@@ -133,33 +133,37 @@ if question:
         doc_stream = chain_dict["retriever"].stream(retriever_input)
         docs = []
         for doc in doc_stream:
-            # 디버깅용 출력
-            st.write(doc)  # 반환된 객체의 구조를 확인
-            docs.append(doc)
+            # Ensure only valid Document objects are processed
+            if isinstance(doc, dict) and "page_content" in doc:
+                docs.append(doc)
 
-        # Check if docs have valid structure
-        if docs and hasattr(docs[0], "page_content"):
-            context = "\n\n".join([doc.page_content for doc in docs])
+        # Ensure docs are valid
+        if docs:
+            context = "\n\n".join(
+                [doc["page_content"] for doc in docs if "page_content" in doc]
+            )
         else:
-            context = "No valid documents retrieved."
+            context = "No relevant documents found."
 
         # Stream the answer
         answer_stream = chain_dict["combine_docs_chain"].stream(
             {"context": context, "input": question}
         )
-
-        st.success("Here's the answer:")
         answer_text = ""
         for part in answer_stream:
             answer_text += part
             st.write(answer_text)  # Dynamically update the UI
 
+        # Display sources
         st.write("Sources:")
-        sources = set(
-            doc.metadata["source"] for doc in docs if hasattr(doc, "metadata")
-        )
-        for source in sources:
-            st.markdown(f"- [{source}]({source})")
+        if docs:
+            sources = set(
+                doc["metadata"]["source"] for doc in docs if "metadata" in doc
+            )
+            for source in sources:
+                st.markdown(f"- [{source}]({source})")
+        else:
+            st.write("No sources available.")
 
         # Update chat history
         st.session_state.chat_history.append({"role": "human", "content": question})
