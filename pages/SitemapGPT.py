@@ -115,7 +115,7 @@ retrieval_chain = create_retrieval_chain(
     ),
     retriever=history_aware_retriever,
     combine_documents_chain=create_stuff_documents_chain(
-        ChatPromptTemplate.from_messages(
+        prompt=ChatPromptTemplate.from_messages(
             [
                 ("system", qa_system_prompt),
                 MessagesPlaceholder("input_documents"),
