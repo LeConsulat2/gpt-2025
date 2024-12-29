@@ -121,9 +121,8 @@ if "messages" not in st.session_state:
 question = st.text_input("Enter your question:")
 if question:
     with st.spinner("Fetching the response..."):
-        docs = chain_dict["retriever"].get_relevant_documents(
-            {"input": question, "chat_history": st.session_state.messages}
-        )
+        # 수정된 부분: retriever 호출 방식 변경
+        docs = chain_dict["retriever"].invoke(question)
         answer = chain_dict["combine_docs_chain"].invoke(
             {
                 "context": "\n\n".join([doc.page_content for doc in docs]),
