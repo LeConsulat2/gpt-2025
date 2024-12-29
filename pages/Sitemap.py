@@ -35,7 +35,7 @@ def load_documentation_urls(sitemap_url, products):
 st.sidebar.title("SiteGPT for Cloudflare Docs")
 user_api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
 st.sidebar.markdown(
-    "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/SitemapGPT.py)"
+    "[View on GitHub](https://github.com/LeConsulat2/gpt-2025/blob/master/pages/Sitemap.py)"
 )
 
 if not user_api_key:
@@ -96,8 +96,8 @@ def initialize_chain():
                     "system",
                     "You are an assistant for question-answering tasks. "
                     "Use the following context to answer the question. "
-                    "If you don't know the answer, just say that you don't know. "
-                    "Use three sentences maximum and keep the answer concise.",
+                    "Tell human as much as you know, be sophisticated "
+                    "Be precise but be warm.",
                 ),
                 # 반드시 {context}가 있어야 문서들을 해당 변수로 매핑할 수 있음
                 ("human", "{context}\n\nQuestion: {question}"),
