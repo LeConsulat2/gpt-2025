@@ -114,29 +114,47 @@ st.write("Ask me anything about the following Cloudflare products:")
 st.write(", ".join(docs_urls.keys()))
 
 # Chat interface
+# Chat interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
 # User input
 question = st.text_input("Enter your question:")
 if question:
     with st.spinner("Fetching the response..."):
-        # 수정된 부분: retriever 호출 방식 변경
-        docs = chain_dict["retriever"].invoke(question)
-        answer = chain_dict["combine_docs_chain"].invoke(
-            {
-                "context": "\n\n".join([doc.page_content for doc in docs]),
-                "input": question,
-            }
+        # Stream documents with history-aware retriever
+        retriever_input = {
+            "chat_history": st.session_state.chat_history,
+            "input": question,
+        }
+
+        # Stream documents
+        doc_stream = chain_dict["retriever"].stream(retriever_input)
+        docs = []
+        for doc in doc_stream:
+            docs.append(doc)
+
+        # Stream the answer
+        context = "\n\n".join([doc.page_content for doc in docs])
+        answer_stream = chain_dict["combine_docs_chain"].stream(
+            {"context": context, "input": question}
         )
 
         st.success("Here's the answer:")
-        st.write(answer)
+        answer_text = ""
+        for part in answer_stream:
+            answer_text += part
+            st.write(answer_text)  # Dynamically update the UI
 
         st.write("Sources:")
         sources = set(doc.metadata["source"] for doc in docs)
         for source in sources:
             st.markdown(f"- [{source}]({source})")
 
-        st.session_state.messages.append(("human", question))
-        st.session_state.messages.append(("assistant", answer))
+        # Update chat history
+        st.session_state.chat_history.append({"role": "human", "content": question})
+        st.session_state.chat_history.append(
+            {"role": "assistant", "content": answer_text}
+        )
