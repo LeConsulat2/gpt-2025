@@ -7,7 +7,6 @@ from langchain_openai.embeddings import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from streamlit import st_empty
 from langchain.chains.combine_documents import create_stuff_documents_chain
 
 # Constants for the documentation URLs
