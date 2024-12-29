@@ -67,9 +67,9 @@ def initialize_chain():
                 docs.append(split)
 
     vector_store = FAISS.from_texts(
-        texts=[doc.page_content for doc in docs],
+        texts=[doc.page_content for doc in docs if hasattr(doc, "page_content")],
         embedding=embeddings,
-        metadatas=[doc.metadata for doc in docs],
+        metadatas=[doc.metadata for doc in docs if hasattr(doc, "metadata")],
     )
 
     retriever = vector_store.as_retriever()
@@ -123,7 +123,7 @@ if question:
     with st.spinner("Fetching the response..."):
         docs = chain_dict["retriever"].invoke({"chat_history": [], "input": question})
 
-        # 데이터 검증
+        # Ensure valid documents
         if isinstance(docs, list):
             valid_docs = [
                 doc
