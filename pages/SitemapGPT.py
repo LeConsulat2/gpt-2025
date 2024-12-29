@@ -132,16 +132,15 @@ if question:
         # Stream documents
         doc_stream = chain_dict["retriever"].stream(retriever_input)
         docs = []
+
         for doc in doc_stream:
-            # Ensure only valid Document objects are processed
-            if isinstance(doc, dict) and "page_content" in doc:
+            # 명확하게 `Document` 객체만 처리
+            if hasattr(doc, "page_content") and hasattr(doc, "metadata"):
                 docs.append(doc)
 
         # Ensure docs are valid
         if docs:
-            context = "\n\n".join(
-                [doc["page_content"] for doc in docs if "page_content" in doc]
-            )
+            context = "\n\n".join([doc.page_content for doc in docs])
         else:
             context = "No relevant documents found."
 
@@ -158,7 +157,7 @@ if question:
         st.write("Sources:")
         if docs:
             sources = set(
-                doc["metadata"]["source"] for doc in docs if "metadata" in doc
+                doc.metadata["source"] for doc in docs if hasattr(doc, "metadata")
             )
             for source in sources:
                 st.markdown(f"- [{source}]({source})")
