@@ -62,7 +62,6 @@ def initialize_chain():
                 split.metadata["source"] = url
                 docs.append(split)
 
-    # Create a FAISS vector store
     vector_store = FAISS.from_texts(
         texts=[doc.page_content for doc in docs if hasattr(doc, "page_content")],
         embedding=embeddings,
@@ -88,7 +87,7 @@ def initialize_chain():
         llm=llm, retriever=retriever, prompt=contextualize_q_prompt
     )
 
-    # ---- 핵심: stuff 체인 생성 시 {context}가 들어가도록 prompt 수정 ----
+    # ★ 핵심: document_variable_name="context" 를 명시하고, 프롬프트 내에 {context} 사용
     chain = create_stuff_documents_chain(
         llm=llm,
         prompt=ChatPromptTemplate.from_messages(
@@ -100,10 +99,11 @@ def initialize_chain():
                     "If you don't know the answer, just say that you don't know. "
                     "Use three sentences maximum and keep the answer concise.",
                 ),
-                # 아래처럼 {context} 변수를 꼭 사용해야 KeyError가 안 납니다.
+                # 반드시 {context}가 있어야 문서들을 해당 변수로 매핑할 수 있음
                 ("human", "{context}\n\nQuestion: {question}"),
             ]
         ),
+        document_variable_name="context",  # => "input_documents" → "{context}"
     )
 
     return {
@@ -112,10 +112,8 @@ def initialize_chain():
     }
 
 
-# Initialize chain
 chain_dict = initialize_chain()
 
-# Main interface
 st.title("Cloudflare Documentation Assistant")
 st.write("Ask me anything about the following Cloudflare products:")
 st.write(", ".join(docs_urls.keys()))
@@ -127,9 +125,7 @@ question = st.text_input("Enter your question:")
 
 if question:
     with st.spinner("Fetching the response..."):
-        # 1) Retrieve relevant docs based on chat history + new question
         docs = chain_dict["retriever"].invoke({"chat_history": [], "input": question})
-
         valid_docs = []
         if isinstance(docs, list):
             for doc in docs:
@@ -139,14 +135,13 @@ if question:
                     valid_docs.append(doc)
 
         if valid_docs:
-            # 2) Stuff chain 호출 시 문서는 input_documents -> {context}, 질문은 {question}에 매핑
+            # ★ 여기서 "context": valid_docs 로 넘겨야 {context}에 문서들이 매핑됨
             answer = chain_dict["combine_docs_chain"].invoke(
                 {
-                    "input_documents": valid_docs,
-                    "question": question,
+                    "context": valid_docs,  # {context}로 매핑
+                    "question": question,  # {question}로 매핑
                 }
             )
-
             st.success("Here's the answer:")
             st.write(answer)
 
