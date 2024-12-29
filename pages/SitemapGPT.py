@@ -150,7 +150,9 @@ if question:
 
         # Ensure docs are valid
         if docs:
-            context = "\n\n".join([doc.page_content for doc in docs])
+            context = "\n\n".join(
+                [doc.page_content for doc in docs if hasattr(doc, "page_content")]
+            )
         else:
             context = "No relevant documents found."
 
@@ -161,11 +163,11 @@ if question:
         st.success("Here's the answer:")
         answer_text = ""
 
+        # Debugging: output the structure and type of each chunk
         for chunk in answer_stream:
-            # 디버깅용 출력: 반환된 데이터 타입과 내용을 확인
             st.write(f"Answer chunk: {chunk} (Type: {type(chunk)})")
 
-            # 문자열 처리
+            # 문자열만 처리
             if isinstance(chunk, str):
                 answer_text += chunk
                 st.write(answer_text)  # Dynamically update the UI
