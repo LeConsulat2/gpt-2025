@@ -111,21 +111,23 @@ qa_system_prompt = (
     "don't know. Use three sentences maximum and keep the answer "
     "concise."
 )
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0.3,
+    openai_api_key=user_api_key,
+)
 retrieval_chain = create_retrieval_chain(
-    llm=ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.3,
-        openai_api_key=user_api_key,
-    ),
+    llm=llm,
     retriever=history_aware_retriever,
     combine_documents_chain=create_stuff_documents_chain(
+        llm=llm,
         prompt=ChatPromptTemplate.from_messages(
             [
                 ("system", qa_system_prompt),
                 MessagesPlaceholder("input_documents"),
                 ("human", "{input}"),
             ]
-        )
+        ),
     ),
 )
 
