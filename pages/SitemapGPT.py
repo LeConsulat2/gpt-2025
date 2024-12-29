@@ -93,21 +93,22 @@ def initialize_retrieval_chain():
     )
 
     # Create the final chain
-    qa_prompt = ChatPromptTemplate.from_messages(
+    combine_docs_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 "You are an assistant for question-answering tasks. Use the following context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.",
             ),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
+            ("human", "{context}\nQuestion: {input}"),
         ]
     )
 
     return create_retrieval_chain(
         llm=llm,
         retriever=history_aware_retriever,
-        combine_documents_chain=create_stuff_documents_chain(llm=llm, prompt=qa_prompt),
+        combine_documents_chain=create_stuff_documents_chain(
+            llm=llm, prompt=combine_docs_prompt
+        ),
     )
 
 
