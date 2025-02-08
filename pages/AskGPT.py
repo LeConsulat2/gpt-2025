@@ -94,7 +94,7 @@ class AUTChatAssistant:
             st.header("Chat Controls")
             if st.button("🔄 Reset Conversation"):
                 self.init_session_state()
-                st.experimental_rerun()
+                st.rerun()
 
             add_vertical_space(2)
             st.markdown("**Chat History**")
