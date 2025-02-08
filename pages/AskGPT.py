@@ -56,11 +56,12 @@ class AUTChatAssistant:
             "content": "You are an expert assistant specializing in AUT University Learning Management System. Provide precise, comprehensive answers.",
         }
 
+        # 기존 대화 내용 초기화 방지 (이전 대화 유지)
+
         if "conversation" not in st.session_state:
             st.session_state.conversation = [default_system_prompt]
 
-        if "chat_history" not in st.session_state:
-            st.session_state.chat_history = []
+        st.session_state.chat_history = []
 
     def stream_response(self, conversation: List[Dict]):
         """
