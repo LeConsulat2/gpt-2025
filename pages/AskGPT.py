@@ -107,7 +107,7 @@ class AUTChatAssistant:
             st.chat_message(role).write(message["content"])
 
         # User input handling
-        if prompt := st.chat_input("Ask anything about AUT University"):
+        if prompt := st.chat_input("Ask anything about AUT University Learning..."):
             st.session_state.conversation.append({"role": "user", "content": prompt})
             st.session_state.chat_history.append(prompt)
             st.chat_message("user").write(prompt)
