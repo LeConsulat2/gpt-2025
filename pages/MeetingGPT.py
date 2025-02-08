@@ -1,39 +1,13 @@
 import streamlit as st
+import os
 import subprocess
 import tempfile
-from pytube import YouTube
-import yt_dlp
-from openai import OpenAI
-import os
+import streamlit as st
+
 from background import Black
+from openai import OpenAI
 
 Black.dark_theme()
-
-
-# pytube 대신 yt-dlp 사용
-import yt_dlp
-
-
-def download_audio_from_youtube(youtube_url):
-    """
-    유튜브 링크에서 오디오 다운로드 (yt-dlp 사용)
-    """
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "outtmpl": temp_audio_file.name,
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                }
-            ],
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([youtube_url])
-
-        return temp_audio_file.name
 
 
 def audio_extract(video_file):
@@ -108,40 +82,111 @@ def transcribe_audio(audio_segment_paths):
 # Streamlit UI는 그대로 유지
 st.title("Video and Audio Transcription Tool")
 
-input_type = st.radio("Choose Input Type", options=["Upload File", "YouTube Link"])
+# input_type = st.radio("Choose Input Type", options=["Upload File", "YouTube Link"])
 
-if input_type == "Upload File":
-    uploaded_file = st.file_uploader(
-        "Upload your video or audio file", type=["mp4", "mp3"]
-    )
+uploaded_file = st.file_uploader("Upload your video or audio file", type=["mp4", "mp3"])
 
-    if uploaded_file:
-        with st.spinner("Processing uploaded file..."):
-            if uploaded_file.type == "audio/mpeg":  # MP3
-                with tempfile.NamedTemporaryFile(
-                    suffix=".mp3", delete=False
-                ) as temp_audio:
-                    temp_audio.write(uploaded_file.read())
-                    temp_audio.flush()
-                    segments = split_audio_into_segments(temp_audio.name)
-                    transcription = transcribe_audio(segments)
-                    st.success("Transcription completed!")
-                    st.text_area("Transcription:", transcription, height=300)
-
-            elif uploaded_file.type == "video/mp4":  # MP4
-                audio_path = audio_extract(uploaded_file)
-                segments = split_audio_into_segments(audio_path)
+if uploaded_file:
+    with st.spinner("Processing uploaded file..."):
+        if uploaded_file.type == "audio/mpeg":  # MP3
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio:
+                temp_audio.write(uploaded_file.read())
+                temp_audio.flush()
+                segments = split_audio_into_segments(temp_audio.name)
                 transcription = transcribe_audio(segments)
                 st.success("Transcription completed!")
                 st.text_area("Transcription:", transcription, height=300)
 
-elif input_type == "YouTube Link":
-    youtube_url = st.text_input("Enter Youtube video link:")
-
-    if youtube_url:
-        with st.spinner("Processing Youtube video..."):
-            audio_path = download_audio_from_youtube(youtube_url)
+        elif uploaded_file.type == "video/mp4":  # MP4
+            audio_path = audio_extract(uploaded_file)
             segments = split_audio_into_segments(audio_path)
             transcription = transcribe_audio(segments)
             st.success("Transcription completed!")
             st.text_area("Transcription:", transcription, height=300)
+
+# elif input_type == "YouTube Link":
+#     youtube_url = st.text_input("Enter Youtube video link:")
+
+# if youtube_url:
+#     with st.spinner("Processing Youtube video..."):
+#         audio_path = download_audio_from_youtube(youtube_url)
+#         segments = split_audio_into_segments(audio_path)
+#         transcription = transcribe_audio(segments)
+#         st.success("Transcription completed!")
+#         st.text_area("Transcription:", transcription, height=300)
+
+
+# def download_audio_from_youtube(youtube_url):
+#     """
+#     유튜브 링크에서 오디오를 다운로드한 후 MP3로 변환합니다.
+#     개선 사항:
+#       - Windows 환경에서 NamedTemporaryFile을 사용해 파일 잠금 문제를 회피합니다.
+#       - 다운로드된 파일의 크기를 확인하여 비정상적인 경우 에러를 발생시킵니다.
+#       - ffmpeg 명령에 "-y" (강제 덮어쓰기)와 "-vn" (비디오 제거) 옵션을 추가합니다.
+#     """
+#     try:
+#         # NamedTemporaryFile을 사용해 임시 파일 생성 (delete=False로 파일 잠금 문제 회피)
+#         temp_file = tempfile.NamedTemporaryFile(suffix=".webm", delete=False)
+#         temp_path = temp_file.name
+#         temp_file.close()  # 파일을 닫아서 외부 프로세스(ffmpeg 등)에서 접근할 수 있도록 함
+
+#         ydl_opts = {
+#             "format": "bestaudio/best",
+#             "outtmpl": temp_path,
+#             "quiet": False,
+#         }
+
+#         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+#             st.write("Attempting to extract video info...")
+#             info = ydl.extract_info(youtube_url, download=True)
+#             st.write("Video title:", info.get("title", "Unknown"))
+#             st.write("Download completed")
+
+#         # 추가 디버깅: 다운로드된 파일 크기를 출력
+#         file_size = os.path.getsize(temp_path)
+#         st.write("Downloaded file size:", file_size, "bytes")
+#         if file_size < 1024:
+#             st.error("Downloaded file appears to be too small or corrupted")
+#             raise Exception("Downloaded file is too small")
+
+#         # 결과로 변환할 MP3 파일의 경로 결정
+#         output_path = temp_path.replace(".webm", ".mp3")
+
+#         st.write("Converting to MP3...")
+#         # ffmpeg 명령어 구성: -y (덮어쓰기), -vn (비디오 스트림 제거), libmp3lame로 인코딩
+#         command = [
+#             "ffmpeg",
+#             "-y",
+#             "-v",
+#             "verbose",
+#             "-i",
+#             temp_path,
+#             "-vn",
+#             "-acodec",
+#             "libmp3lame",
+#             output_path,
+#         ]
+
+#         result = subprocess.run(command, capture_output=True, text=True)
+#         st.write("FFmpeg command:", " ".join(command))
+#         st.write("FFmpeg stdout:")
+#         st.code(result.stdout)
+#         st.write("FFmpeg stderr:")
+#         st.code(result.stderr)
+
+#         if result.returncode != 0:
+#             raise subprocess.CalledProcessError(
+#                 result.returncode, command, result.stdout, result.stderr
+#             )
+
+#         st.write("Conversion completed")
+#         return output_path
+
+#     except Exception as e:
+#         st.error("Error: " + str(e))
+#         try:
+#             if os.path.exists(temp_path):
+#                 os.unlink(temp_path)
+#         except Exception as ex:
+#             st.error("Failed to delete temporary file: " + str(ex))
+#         raise

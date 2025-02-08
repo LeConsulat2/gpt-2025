@@ -9,7 +9,8 @@ env/
 .venv/
 
 # 테스트용 노트북 파일
-test.ipynb
+testings/
+conversation_store/
 
 # Streamlit 디렉토리와 설정 파일
 .streamlit/*

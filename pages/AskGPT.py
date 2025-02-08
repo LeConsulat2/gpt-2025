@@ -22,18 +22,13 @@ logger = logging.getLogger(__name__)
 
 
 # Enhanced theme application with error handling
-try:
-    Black.dark_theme()
-except Exception as e:
-    logger.error(f"Theme initialization failed: {e}")
-    st.error("Failed to load dark theme. Defaulting to standard interface.")
-
+Black.dark_theme()
 # Robust environment variable loading
 load_dotenv(override=True)
 
 
 class AUTChatAssistant:
-    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.5):
+    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.7):
         """
         Initialize the AUT Chat Assistant with configurable parameters.
 
@@ -58,7 +53,7 @@ class AUTChatAssistant:
         """Initialize and reset session states."""
         default_system_prompt = {
             "role": "system",
-            "content": "You are an expert assistant specializing in AUT University information. Provide precise, comprehensive answers.",
+            "content": "You are an expert assistant specializing in AUT University Learning Management System. Provide precise, comprehensive answers.",
         }
 
         if "conversation" not in st.session_state:
