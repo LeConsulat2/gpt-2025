@@ -30,6 +30,7 @@ llm = ChatOpenAI(
 
 Welcome_Message = """
 Kia ora! Warm Welcome to you, I am your friendly learning assistant.
+
 Please feel free to choose Assistants from the left sidebar to help you with your queries.
 """
 
