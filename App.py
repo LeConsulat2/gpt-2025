@@ -38,7 +38,7 @@ Please feel free to choose Assistants from the left sidebar to help you with you
 
 # ✅ Welcome Message가 한 번만 실행되도록 세션 상태 저장
 if "Welcome_Message" not in st.session_state:
-    st.session_state.Welcome_Message = False  # 처음 실행될 때만 False
+    st.session_state.Welcome_Message = True  # 처음 실행될 때만 False
 
 
 def stream_data(message):
