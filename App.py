@@ -7,7 +7,7 @@ from background import Black
 Black.dark_theme()
 
 # Streamlit interface
-st.title("Your Helpful Learning Assistant! �")
+st.title("Your Helpful Learning Assistant! 😊")
 
 # Using environment variable for API key (if you set it)
 openai_api_key = os.getenv("OPENAI_API_KEY")
