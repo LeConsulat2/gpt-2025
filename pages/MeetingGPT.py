@@ -108,11 +108,13 @@ def transcribe_audio(audio_segment_paths):
     for segment_path in audio_segment_paths:
         if st.session_state["stop"]:  # 중지 버튼 체크
             return ""
+
         with open(segment_path, "rb") as audio_file:
             transcription = client.audio.transcriptions.create(
                 model="whisper-1", file=audio_file
             )
-            transcription_results.append(transcription.text)
+            transcription_results.append(transcription.get("text", ""))
+
         os.remove(segment_path)
 
     return " ".join(transcription_results)
@@ -143,6 +145,7 @@ def process_file(uploaded_file):
 
 # Streamlit UI
 st.title("Video and Audio Transcription Tool")
+
 uploaded_file = st.file_uploader("Upload your video or audio file", type=["mp4", "wav"])
 
 if uploaded_file:

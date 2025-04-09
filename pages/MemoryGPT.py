@@ -26,7 +26,7 @@ chat = ChatOpenAI(
 # Initialize vector store
 @st.cache_resource
 def init_vector_store():
-    embeddings = OpenAIEmbeddings(api_key=openai_api_key)
+    embeddings = OpenAIEmbeddings()
     if os.path.exists("conversation_store"):
         return FAISS.load_local("conversation_store", embeddings)
     return FAISS.from_texts(["Initial conversation"], embeddings)
