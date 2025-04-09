@@ -2,11 +2,10 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-import background.Black as Black
 from typing import List, Dict
-import asyncio
 from streamlit_extras.add_vertical_space import add_vertical_space
 import logging
+from background import Black
 
 # Streamlit page configuration (must be the first Streamlit command)
 st.set_page_config(
@@ -26,6 +25,9 @@ Black.dark_theme()
 # Robust environment variable loading
 load_dotenv(override=True)
 
+# Robust environment variable loading
+load_dotenv(override=True)
+
 
 class AUTChatAssistant:
     def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.7):
@@ -40,12 +42,17 @@ class AUTChatAssistant:
             st.error("🚨 OpenAI API Key not found. Please check your environment.")
             raise ValueError("Missing API Key")
 
-        self.chat = ChatOpenAI(
-            model=model,
-            temperature=temperature,
-            streaming=True,
-            api_key=self.openai_api_key,
-        )
+        try:
+            self.chat = ChatOpenAI(
+                model=model,
+                temperature=temperature,
+                streaming=True,
+                api_key=self.openai_api_key,
+            )
+        except Exception as e:
+            logger.error(f"Error initializing ChatOpenAI: {e}")
+            st.error(f"Failed to initialize the chat model: {e}")
+            raise
 
         self.init_session_state()
 
@@ -56,12 +63,13 @@ class AUTChatAssistant:
             "content": "You are an expert assistant specializing in AUT University Learning Management System. Provide precise, comprehensive answers.",
         }
 
-        # 기존 대화 내용 초기화 방지 (이전 대화 유지)
-
+        # Initialize conversation if not already present
         if "conversation" not in st.session_state:
             st.session_state.conversation = [default_system_prompt]
 
-        st.session_state.chat_history = []
+        # Initialize chat history if not present
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
 
     def stream_response(self, conversation: List[Dict]):
         """
@@ -76,7 +84,7 @@ class AUTChatAssistant:
                 full_response = ""
 
                 for chunk in response:
-                    if chunk.content:
+                    if hasattr(chunk, "content") and chunk.content:
                         full_response += chunk.content
                         yield full_response
 
@@ -94,7 +102,10 @@ class AUTChatAssistant:
         with st.sidebar:
             st.header("Chat Controls")
             if st.button("🔄 Reset Conversation"):
-                self.init_session_state()
+                # Clear the conversation but keep the system prompt
+                default_system_prompt = st.session_state.conversation[0]
+                st.session_state.conversation = [default_system_prompt]
+                st.session_state.chat_history = []
                 st.rerun()
 
             add_vertical_space(2)
