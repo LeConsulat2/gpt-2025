@@ -15,6 +15,8 @@ Black.dark_theme()
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+ChatOpenAI.model_rebuild()  # 추가
+
 # Initialize chat model
 chat = ChatOpenAI(
     model="gpt-4o-mini",
@@ -26,7 +28,7 @@ chat = ChatOpenAI(
 # Initialize vector store
 @st.cache_resource
 def init_vector_store():
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(api_key=openai_api_key)
     if os.path.exists("conversation_store"):
         return FAISS.load_local("conversation_store", embeddings)
     return FAISS.from_texts(["Initial conversation"], embeddings)

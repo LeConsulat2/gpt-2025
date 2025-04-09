@@ -112,7 +112,7 @@ def transcribe_audio(audio_segment_paths):
             transcription = client.audio.transcriptions.create(
                 model="whisper-1", file=audio_file
             )
-            transcription_results.append(transcription.get("text", ""))
+            transcription_results.append(transcription.text)
         os.remove(segment_path)
 
     return " ".join(transcription_results)

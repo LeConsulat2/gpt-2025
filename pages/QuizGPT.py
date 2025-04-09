@@ -51,11 +51,12 @@ if not st.session_state.openai_api_key:
     st.warning("Please enter your OpenAI API Key in the sidebar to continue.")
     st.stop()
 
-# LLM Initialization
+ChatOpenAI.model_rebuild()  # ← 꼭 호출
+
 llm = ChatOpenAI(
     temperature=0.7,
     model="gpt-4o-mini",
-    openai_api_key=st.session_state.openai_api_key,
+    api_key=st.session_state.openai_api_key,
 )
 
 
