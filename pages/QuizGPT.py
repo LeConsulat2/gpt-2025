@@ -51,7 +51,6 @@ if not st.session_state.openai_api_key:
     st.warning("Please enter your OpenAI API Key in the sidebar to continue.")
     st.stop()
 
-ChatOpenAI.model_rebuild()  # ← 꼭 호출
 
 llm = ChatOpenAI(
     temperature=0.7,

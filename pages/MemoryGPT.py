@@ -15,8 +15,6 @@ Black.dark_theme()
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-ChatOpenAI.model_rebuild()  # 추가
-
 # Initialize chat model
 chat = ChatOpenAI(
     model="gpt-4o-mini",

@@ -12,7 +12,6 @@ st.title("Your Helpful Learning Assistant! 😊")
 # Using environment variable for API key (if you set it)
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-ChatOpenAI.model_rebuild()  # ✅ 이 줄 추가
 
 # Initialize LLM with streaming enabled (현재는 생성만 하고 사용하지 않음)
 llm = ChatOpenAI(
