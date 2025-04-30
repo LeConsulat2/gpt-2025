@@ -5,55 +5,53 @@ import streamlit as st
 from background import Black
 from streamlit_extras.add_vertical_space import add_vertical_space
 from typing import List, Dict
-from langchain_openai import ChatOpenAI
 
+# 최신 LangChain에서는 이 경로로 불러옵니다
+from langchain.chat_models import ChatOpenAI
+
+# Load environment variables (override existing)
+load_dotenv(override=True)
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 # Streamlit page configuration (must be the first Streamlit command)
 st.set_page_config(
     page_title="AUT Intelligent Assistant", page_icon="🎓", layout="wide"
 )
 
-set_llm_cache(InMemoryCache())
-
-
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.7,
-    api_key=os.getenv("OPENAI_API_KEY"),
-    streaming=True,
-)
-
-
-# Advanced logging configuration
+# Initialize logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Apply dark theme with error handling
+# Apply dark theme
 try:
     Black.dark_theme()
 except Exception as e:
     logger.warning(f"Failed to apply theme: {e}")
 
-# Load environment variables (override existing)
-load_dotenv(override=True)
+# Initialize the LLM
+if not openai_api_key:
+    st.error("🚨 OPENAI_API_KEY not found. Please add it to your .env file.")
+    raise ValueError("Missing OPENAI_API_KEY")
+
+# (Pydantic v2 환경에서 필요한 경우) 모델 재빌드
+try:
+    ChatOpenAI.model_rebuild()
+except AttributeError:
+    pass  # 최신 버전은 자동으로 처리됨
+
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0.7,
+    api_key=openai_api_key,
+    streaming=True,
+)
 
 
 class AUTChatAssistant:
-    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.7):
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            st.error("🚨 OpenAI API Key not found. Please check your .env file.")
-            raise ValueError("Missing OPENAI_API_KEY")
-
-        # Initialize the ChatOpenAI with streaming
-        self.chat = ChatOpenAI(
-            model=model,
-            temperature=temperature,
-            streaming=True,
-            api_key=self.openai_api_key,
-        )
+    def __init__(self):
+        self.chat = llm
         self.init_session_state()
 
     def init_session_state(self):
