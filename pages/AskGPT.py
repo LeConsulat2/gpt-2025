@@ -10,6 +10,13 @@ from langchain.chat_models import ChatOpenAI
 # Rebuild Pydantic models to avoid `not fully defined` errors
 ChatOpenAI.model_rebuild()
 
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0.4,
+    api_key=os.getenv("OPENAI_API_KEY"),
+    streaming=True,
+)
+
 # Streamlit page configuration (must be the first Streamlit command)
 st.set_page_config(
     page_title="AUT Intelligent Assistant", page_icon="🎓", layout="wide"
