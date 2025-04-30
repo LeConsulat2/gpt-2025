@@ -5,10 +5,8 @@ import streamlit as st
 from background import Black
 from streamlit_extras.add_vertical_space import add_vertical_space
 from typing import List, Dict
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 
-# Rebuild Pydantic models to avoid `not fully defined` errors
-ChatOpenAI.model_rebuild()
 
 llm = ChatOpenAI(
     model="gpt-4o-mini",
