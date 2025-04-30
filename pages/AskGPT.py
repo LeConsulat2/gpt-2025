@@ -42,8 +42,8 @@ except AttributeError:
     pass  # 최신 버전은 자동으로 처리됨
 
 llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.7,
+    model="gpt-4.1",
+    temperature=0.3,
     api_key=openai_api_key,
     streaming=True,
 )
