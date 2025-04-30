@@ -8,17 +8,21 @@ from typing import List, Dict
 from langchain_openai import ChatOpenAI
 
 
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.4,
-    api_key=os.getenv("OPENAI_API_KEY"),
-    streaming=True,
-)
-
 # Streamlit page configuration (must be the first Streamlit command)
 st.set_page_config(
     page_title="AUT Intelligent Assistant", page_icon="🎓", layout="wide"
 )
+
+set_llm_cache(InMemoryCache())
+
+
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0.7,
+    api_key=os.getenv("OPENAI_API_KEY"),
+    streaming=True,
+)
+
 
 # Advanced logging configuration
 logging.basicConfig(
