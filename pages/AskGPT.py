@@ -6,40 +6,37 @@ from background import Black
 from streamlit_extras.add_vertical_space import add_vertical_space
 from typing import List, Dict
 
-# 최신 LangChain에서는 이 경로로 불러옵니다
 from langchain.chat_models import ChatOpenAI
 
-# Load environment variables (override existing)
+# 환경 변수 로드
 load_dotenv(override=True)
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-# Streamlit page configuration (must be the first Streamlit command)
-st.set_page_config(
-    page_title="AUT Intelligent Assistant", page_icon="🎓", layout="wide"
-)
+# Streamlit 페이지 설정
+st.set_page_config(page_title="GPT 4.1 AI 챗봇", page_icon="🤖", layout="wide")
 
-# Initialize logging
+# 로깅 설정
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Apply dark theme
+# 다크 테마 적용
 try:
     Black.dark_theme()
 except Exception as e:
-    logger.warning(f"Failed to apply theme: {e}")
+    logger.warning(f"다크 테마 적용 실패: {e}")
 
-# Initialize the LLM
+# LLM 초기화
 if not openai_api_key:
-    st.error("🚨 OPENAI_API_KEY not found. Please add it to your .env file.")
-    raise ValueError("Missing OPENAI_API_KEY")
+    st.error("🚨 OPENAI_API_KEY가 설정되지 않았습니다. .env 파일에 키를 추가해주세요.")
+    raise ValueError("API 키 없음")
 
-# (Pydantic v2 환경에서 필요한 경우) 모델 재빌드
+# (Pydantic v2 대응) 모델 재빌드
 try:
     ChatOpenAI.model_rebuild()
 except AttributeError:
-    pass  # 최신 버전은 자동으로 처리됨
+    pass
 
 llm = ChatOpenAI(
     model="gpt-4.1",
@@ -49,7 +46,7 @@ llm = ChatOpenAI(
 )
 
 
-class AUTChatAssistant:
+class GPTChatAssistant:
     def __init__(self):
         self.chat = llm
         self.init_session_state()
@@ -58,8 +55,8 @@ class AUTChatAssistant:
         default_system_prompt = {
             "role": "system",
             "content": (
-                "You are an expert assistant specializing in "
-                "AUT University Learning Management System. Provide precise, comprehensive answers."
+                "당신은 유용하고 친절한 AI 어시스턴트입니다. "
+                "사용자가 어떤 질문을 하더라도 명확하고 정확하게 답변하세요."
             ),
         }
         if "conversation" not in st.session_state:
@@ -68,7 +65,7 @@ class AUTChatAssistant:
 
     def stream_response(self, conversation: List[Dict]):
         try:
-            with st.spinner("Generating response..."):
+            with st.spinner("답변 생성 중..."):
                 response = self.chat.stream(conversation)
                 full_response = ""
                 for chunk in response:
@@ -76,21 +73,21 @@ class AUTChatAssistant:
                         full_response += chunk.content
                         yield full_response
         except Exception as e:
-            logger.error(f"Response generation error: {e}")
-            st.error(f"Error generating response: {e}")
-            yield "I apologize, but I encountered an error processing your request."
+            logger.error(f"답변 생성 오류: {e}")
+            st.error(f"답변 생성 중 오류가 발생했습니다: {e}")
+            yield "죄송합니다. 요청을 처리하는 중 문제가 발생했습니다."
 
     def run(self):
-        st.title("🎓 AUT Intelligent Chat Assistant")
-        st.markdown("*Powered by Advanced AI Technologies*")
+        st.title("🤖 GPT 4.1 AI 챗봇")
+        st.markdown("*무엇이든 물어보세요. OpenAI GPT-4.1 기반 AI 챗봇입니다.*")
 
         with st.sidebar:
-            st.header("Chat Controls")
-            if st.button("🔄 Reset Conversation"):
+            st.header("채팅 설정")
+            if st.button("🔄 대화 초기화"):
                 self.init_session_state()
                 st.rerun()
             add_vertical_space(2)
-            st.markdown("**Chat History**")
+            st.markdown("**최근 질문 기록**")
             for msg in st.session_state.chat_history[-5:]:
                 st.markdown(f"- {msg}")
 
@@ -98,7 +95,7 @@ class AUTChatAssistant:
             role = "user" if message["role"] == "user" else "assistant"
             st.chat_message(role).write(message["content"])
 
-        if prompt := st.chat_input("Ask anything about AUT University Learning..."):
+        if prompt := st.chat_input("무엇이든 질문해보세요..."):
             st.session_state.conversation.append({"role": "user", "content": prompt})
             st.session_state.chat_history.append(prompt)
             st.chat_message("user").write(prompt)
@@ -116,11 +113,11 @@ class AUTChatAssistant:
 
 def main():
     try:
-        assistant = AUTChatAssistant()
+        assistant = GPTChatAssistant()
         assistant.run()
     except Exception as e:
-        st.error(f"Critical error: {e}")
-        logger.critical(f"Application failed to start: {e}")
+        st.error(f"치명적 오류 발생: {e}")
+        logger.critical(f"애플리케이션 실행 실패: {e}")
 
 
 if __name__ == "__main__":
